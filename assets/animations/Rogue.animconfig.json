@@ -1,0 +1,55 @@
+{
+ "$version": 2,
+ "$root": {
+  "$bc": "ENGINE.AnimationConfigResource",
+  "externalAnimationSources": [
+   "@project/assets/animations/Rig_Medium_General.glb"
+  ],
+  "initialState": "idle",
+  "parameters": {
+   "gesture": 0
+  },
+  "clipOptions": {
+   "Idle_A": { "loop": "LoopRepeat" },
+   "Idle_B": { "loop": "LoopRepeat" },
+   "Use_Item": { "loop": "LoopOnce", "clampWhenFinished": true },
+   "PickUp": { "loop": "LoopOnce", "clampWhenFinished": true },
+   "Interact": { "loop": "LoopOnce", "clampWhenFinished": true }
+  },
+  "states": {
+   "idle": {
+    "clip": "Idle_A",
+    "transitions": [
+     { "blendDuration": 0.3, "condition": { "gesture": 1 }, "to": "idle_b" },
+     { "blendDuration": 0.2, "condition": { "gesture": 2 }, "to": "use_item" },
+     { "blendDuration": 0.2, "condition": { "gesture": 3 }, "to": "pickup" },
+     { "blendDuration": 0.15, "condition": { "gesture": 4 }, "to": "interact" }
+    ]
+   },
+   "interact": {
+    "clip": "Interact",
+    "transitions": [
+     { "blendDuration": 0.25, "condition": { "gesture": 0 }, "to": "idle" }
+    ]
+   },
+   "idle_b": {
+    "clip": "Idle_B",
+    "transitions": [
+     { "blendDuration": 0.3, "condition": { "gesture": 0 }, "to": "idle" }
+    ]
+   },
+   "use_item": {
+    "clip": "Use_Item",
+    "transitions": [
+     { "blendDuration": 0.25, "condition": { "gesture": 0 }, "to": "idle" }
+    ]
+   },
+   "pickup": {
+    "clip": "PickUp",
+    "transitions": [
+     { "blendDuration": 0.25, "condition": { "gesture": 0 }, "to": "idle" }
+    ]
+   }
+  }
+ }
+}

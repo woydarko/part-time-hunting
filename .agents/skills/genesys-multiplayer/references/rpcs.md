@@ -102,7 +102,7 @@ fire(direction: THREE.Vector3, power: number, projectileCount: number): void {
 
 Each element in `params` corresponds to a method parameter by position. Pass `null` or omit an element to keep the auto-inferred encoding for that parameter. A partial object is merged with the inferred metadata; a full object overrides it entirely.
 
-**`netType` quick reference for RPC parameters:**
+`netType` quick reference for RPC parameters:
 
 | TypeScript type | Recommended `netType` |
 |---|---|

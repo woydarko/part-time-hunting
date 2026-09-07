@@ -19,8 +19,8 @@ material.transparent = true;
 ```
 
 In 14 the scene pass derives that alpha from `material.transparent` (opaque → `1`,
-transparent → `0`), so materials no longer participate in writing it. **Remove any
-`material.mrtNode` assignment.** The engine's own particle materials set this in 13
+transparent → `0`), so materials no longer participate in writing it. Remove any
+`material.mrtNode` assignment. The engine's own particle materials set this in 13
 — if the pattern was copied from there, it needs deleting.
 
 Leaving it in place is not merely redundant. A material that sets `mrtNode` becomes
@@ -34,13 +34,13 @@ Search for `\.mrtNode` to find call sites.
 
 These need no code change, but explain rendering differences after the upgrade:
 
-- **AO now skips every material with `transparent: true`**, not only particles. Glass,
+- AO now skips every material with `transparent: true`, not only particles. Glass,
   decals, and alpha-blended surfaces that received AO in 13 no longer do. Note that
   glTF materials authored with `alphaMode: "BLEND"` import as `transparent: true`
   even at full opacity, so a visually solid surface can lose AO this way.
-- **Alpha-tested cutouts are unaffected.** Foliage and similar materials using
+- Alpha-tested cutouts are unaffected. Foliage and similar materials using
   `alphaTest` with `transparent: false` stay in the opaque queue and still receive AO.
-- **There is no per-material override.** `material.transparent` is the only signal
+- There is no per-material override. `material.transparent` is the only signal
   feeding AO validity, and `AOEffectConfig` exposes no per-material control, so a
   transparent-flagged material cannot opt back in.
 

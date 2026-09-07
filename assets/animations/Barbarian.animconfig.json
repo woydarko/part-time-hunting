@@ -1,0 +1,957 @@
+{
+  "$root": {
+    "$bc": "ENGINE.AnimationConfigResource",
+    "externalAnimationSources": [
+      "@project/assets/animations/Rig_Medium_General.glb",
+      "@project/assets/animations/Rig_Medium_MovementBasic.glb",
+      "@project/assets/animations/Rig_Medium_CombatMelee.glb",
+      "@project/assets/animations/Rig_Medium_MovementAdvanced.glb",
+      "@project/assets/animations/Rig_Medium_CombatRanged.glb"
+    ],
+    "initialState": "idle",
+    "parameters": {
+      "forward": 0,
+      "back": 0,
+      "left": 0,
+      "right": 0,
+      "isRunning": false,
+      "isJumping": false,
+      "doPickup": false,
+      "attack": false,
+      "comboStep": 0,
+      "armed": false,
+      "twoHand": false,
+      "ranged": false,
+      "aiming": false,
+      "dodge": false,
+      "dodgeDir": 0,
+      "doDrink": false
+    },
+    "clipOptions": {
+      "Idle_A": {
+        "loop": "LoopRepeat"
+      },
+      "Running_A": {
+        "loop": "LoopRepeat"
+      },
+      "Jump_Start": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Jump_Idle": {
+        "loop": "LoopRepeat"
+      },
+      "Jump_Land": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "PickUp": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_1H_Attack_Stab": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_1H_Attack_Slice_Horizontal": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_1H_Attack_Slice_Diagonal": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_1H_Attack_Chop": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_1H_Attack_Jump_Chop": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_2H_Attack_Stab": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_2H_Attack_Slice": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_2H_Attack_Spin": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_2H_Attack_Chop": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Ranged_Bow_Draw": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Ranged_Bow_Release": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Ranged_1H_Aiming": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Ranged_1H_Shoot": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_Unarmed_Attack_Punch_A": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Melee_Unarmed_Attack_Kick": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Dodge_Forward": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Dodge_Backward": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Dodge_Left": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Dodge_Right": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Use_Item": {
+        "loop": "LoopOnce",
+        "clampWhenFinished": true
+      },
+      "Walking_Backwards": {
+        "loop": "LoopRepeat"
+      },
+      "Running_Strafe_Left": {
+        "loop": "LoopRepeat"
+      },
+      "Running_Strafe_Right": {
+        "loop": "LoopRepeat"
+      }
+    },
+    "oneShotClips": [],
+    "states": {
+      "idle": {
+        "clip": "Idle_A",
+        "transitions": [
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 0
+            },
+            "to": "dodge_f"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 1
+            },
+            "to": "dodge_b"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 2
+            },
+            "to": "dodge_l"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 3
+            },
+            "to": "dodge_r"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "twoHand": true,
+              "ranged": false
+            },
+            "to": "h_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "twoHand": false,
+              "ranged": false
+            },
+            "to": "d_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": false
+            },
+            "to": "u_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "doPickup": true
+            },
+            "to": "pickup"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "doDrink": true
+            },
+            "to": "drink"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "isJumping": false,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "isJumping": true
+            },
+            "to": "jump_start"
+          }
+        ]
+      },
+      "run": {
+        "transitions": [
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 0
+            },
+            "to": "dodge_f"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 1
+            },
+            "to": "dodge_b"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 2
+            },
+            "to": "dodge_l"
+          },
+          {
+            "blendDuration": 0.08,
+            "condition": {
+              "dodge": true,
+              "dodgeDir": 3
+            },
+            "to": "dodge_r"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "twoHand": true,
+              "ranged": false
+            },
+            "to": "h_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "twoHand": false,
+              "ranged": false
+            },
+            "to": "d_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": false
+            },
+            "to": "u_atk1"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "doPickup": true
+            },
+            "to": "pickup"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "doDrink": true
+            },
+            "to": "drink"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "isJumping": false,
+              "isRunning": false
+            },
+            "to": "idle"
+          },
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "isJumping": true
+            },
+            "to": "jump_start"
+          }
+        ],
+        "blend": [
+          {
+            "clip": "Running_A",
+            "weightParam": "forward"
+          },
+          {
+            "clip": "Walking_Backwards",
+            "weightParam": "back"
+          },
+          {
+            "clip": "Running_Strafe_Left",
+            "weightParam": "left"
+          },
+          {
+            "clip": "Running_Strafe_Right",
+            "weightParam": "right"
+          }
+        ]
+      },
+      "d_atk1": {
+        "clip": "Melee_1H_Attack_Stab",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 2
+            },
+            "to": "d_atk2"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "d_atk2": {
+        "clip": "Melee_1H_Attack_Slice_Horizontal",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 3
+            },
+            "to": "d_atk3"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "d_atk3": {
+        "clip": "Melee_1H_Attack_Slice_Diagonal",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 4
+            },
+            "to": "d_atk4"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "d_atk4": {
+        "clip": "Melee_1H_Attack_Chop",
+        "transitions": [
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "d_jump": {
+        "clip": "Melee_1H_Attack_Jump_Chop",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isJumping": true
+            },
+            "to": "jump_air"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "h_atk1": {
+        "clip": "Melee_2H_Attack_Stab",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 2
+            },
+            "to": "h_atk2"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "h_atk2": {
+        "clip": "Melee_2H_Attack_Slice",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 3
+            },
+            "to": "h_atk3"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "h_atk3": {
+        "clip": "Melee_2H_Attack_Spin",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 4
+            },
+            "to": "h_atk4"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "h_atk4": {
+        "clip": "Melee_2H_Attack_Chop",
+        "transitions": [
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "dodge_f": {
+        "clip": "Dodge_Forward",
+        "transitions": [
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "dodge_b": {
+        "clip": "Dodge_Backward",
+        "transitions": [
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "dodge_l": {
+        "clip": "Dodge_Left",
+        "transitions": [
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "dodge_r": {
+        "clip": "Dodge_Right",
+        "transitions": [
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.28,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "u_atk1": {
+        "clip": "Melee_Unarmed_Attack_Punch_A",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "attack": true,
+              "comboStep": 2
+            },
+            "to": "u_atk2"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "u_atk2": {
+        "clip": "Melee_Unarmed_Attack_Kick",
+        "transitions": [
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.2,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "pickup": {
+        "clip": "PickUp",
+        "transitions": [
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "clipFinished": true,
+              "isJumping": true
+            },
+            "to": "jump_air"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "jump_start": {
+        "clip": "Jump_Start",
+        "transitions": [
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "ranged": false
+            },
+            "to": "d_jump"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "isJumping": false,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.12,
+            "condition": {
+              "isJumping": false,
+              "isRunning": false
+            },
+            "to": "jump_land"
+          },
+          {
+            "blendDuration": 0.12,
+            "condition": {
+              "clipFinished": true
+            },
+            "to": "jump_air"
+          }
+        ]
+      },
+      "jump_air": {
+        "clip": "Jump_Idle",
+        "transitions": [
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "attack": true,
+              "armed": true,
+              "ranged": false
+            },
+            "to": "d_jump"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "isJumping": false,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.12,
+            "condition": {
+              "isJumping": false,
+              "isRunning": false
+            },
+            "to": "jump_land"
+          }
+        ]
+      },
+      "jump_land": {
+        "clip": "Jump_Land",
+        "transitions": [
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      },
+      "drink": {
+        "clip": "Use_Item",
+        "transitions": [
+          {
+            "blendDuration": 0.1,
+            "condition": {
+              "clipFinished": true,
+              "isJumping": true
+            },
+            "to": "jump_air"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": true
+            },
+            "to": "run"
+          },
+          {
+            "blendDuration": 0.15,
+            "condition": {
+              "clipFinished": true,
+              "isRunning": false
+            },
+            "to": "idle"
+          }
+        ]
+      }
+    },
+    "masks": {
+      "upperBody": {
+        "selectorType": "bone",
+        "include": [
+          "spine",
+          "chest",
+          "upperarml",
+          "lowerarml",
+          "wristl",
+          "handl",
+          "handslotl",
+          "upperarmr",
+          "lowerarmr",
+          "wristr",
+          "handr",
+          "handslotr",
+          "head"
+        ]
+      }
+    },
+    "layer": {
+      "id": "aim",
+      "mode": "override",
+      "mask": "upperBody",
+      "weight": 0,
+      "initialState": "rest",
+      "states": {
+        "rest": {
+          "clip": "Idle_A",
+          "transitions": []
+        },
+        "aim_bow": {
+          "clip": "Ranged_Bow_Draw",
+          "transitions": [
+            {
+              "to": "shoot_bow",
+              "condition": {
+                "attack": true
+              },
+              "blendDuration": 0.05
+            }
+          ]
+        },
+        "shoot_bow": {
+          "clip": "Ranged_Bow_Release",
+          "transitions": [
+            {
+              "to": "aim_bow",
+              "condition": {
+                "clipFinished": true
+              },
+              "blendDuration": 0.1
+            }
+          ]
+        },
+        "aim_1h": {
+          "clip": "Ranged_1H_Aiming",
+          "transitions": [
+            {
+              "to": "shoot_1h",
+              "condition": {
+                "attack": true
+              },
+              "blendDuration": 0.05
+            }
+          ]
+        },
+        "shoot_1h": {
+          "clip": "Ranged_1H_Shoot",
+          "transitions": [
+            {
+              "to": "aim_1h",
+              "condition": {
+                "clipFinished": true
+              },
+              "blendDuration": 0.1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "$version": 2
+}

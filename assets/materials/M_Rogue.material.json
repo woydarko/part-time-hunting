@@ -1,0 +1,11 @@
+{
+  "$root": {
+    "$bc": "ENGINE.MeshStandardNodeMaterialAsset",
+    "name": "M_Rogue",
+    "mapPath": "@project/assets/textures/rogue_texture.png",
+    "metalness": 0,
+    "roughness": 0.6,
+    "envMapIntensity": 0
+  },
+  "$version": 3
+}

@@ -1,6 +1,6 @@
 ---
 name: genesys-multiplayer
-description: Guidance for writing multiplayer game code in Genesys. Use when implementing networked features, RPCs, replicated nodes (SceneNode/PrimitiveNode roots, replicated entities, ReplicationInfo) or properties, server-authoritative logic, game mode lifecycle, player spawning in multiplayer, or when the user mentions multiplayer, networking, server, client, replication, RPC, latency, or authority. Also use when rendering playerName, team, chat, scoreboards, lobbies, or other replicated strings in the HUD (safe UI / XSS).
+description: Write multiplayer game code in Genesys — replication, RPCs, server authority, GameMode lifecycle, and player spawning. Use when the user mentions multiplayer, networking, server, client, replication, RPC, or authority, or when a feature must decide where it runs. Also use when a HUD shows player names, teams, chat, or scoreboards, since replicated strings are untrusted.
 ---
 
 # Methodology
@@ -12,7 +12,7 @@ Follow these steps when working on multiplayer features:
 3. If the feature is part of match rules or player lifecycle, read [game-mode](references/game-mode.md).
 4. If the feature involves a player-controlled node (Pawn/PlayerController), read [player-ownership](references/player-ownership.md).
 5. Guard all authority-only logic with `this.hasAuthority()` or `NetRuntime.isServer()`.
-6. If the feature displays replicated or join strings in the UI (names, teams, chat, scoreboards), read [ui-security](references/ui-security.md) and follow **Safe UI for replicated strings** below.
+6. If the feature displays replicated or join strings in the UI (names, teams, chat, scoreboards), read [ui-security](references/ui-security.md) and follow Safe UI for replicated strings below.
 
 # Core Multiplayer Guidelines
 
@@ -21,7 +21,7 @@ Follow these steps when working on multiplayer features:
 - The server is the only machine that changes game state. Clients send requests (via `@ServerRPC`) and display the result.
 - Guard all state-modifying logic with `this.hasAuthority()` on the replicated node or `NetRuntime.isServer()` for non-node code.
 - Do not read `NetRuntime` in constructors. The runtime type is set before `beginPlay` is called; guard in `beginPlay` or later.
-- Setting `this.isRoot = true` and `this.replicated = true` on a `SceneNode` makes that node a **replicated entity root** and auto-creates `ReplicationInfo`. Nested `replicated` children join that entity's member map; a nested `isRoot && replicated` node is its own entity. Call `this.ensureReplicationInfo()` when you need the info before the setter runs. Setting `replicated` on a client has no effect; do not flip it after the node is registered with NetWorld. Details: [node-replication](references/node-replication.md).
+- Setting `this.isRoot = true` and `this.replicated = true` on a `SceneNode` makes that node a replicated entity root and auto-creates `ReplicationInfo`. Nested `replicated` children join that entity's member map; a nested `isRoot && replicated` node is its own entity. Call `this.ensureReplicationInfo()` when you need the info before the setter runs. Setting `replicated` on a client has no effect; do not flip it after the node is registered with NetWorld. Details: [node-replication](references/node-replication.md).
 - Mark properties for network sync with `@ENGINE.property({ replicate: true })`. Only nodes inside a replicated entity's member map synchronise their replicated properties.
 - Use `@ServerRPC` when a client needs the server to perform an action (e.g., fire a weapon, request a respawn).
 - Use `@ClientRPC` when the server needs to notify the owning client of something (e.g., display a UI prompt).
@@ -31,7 +31,7 @@ Follow these steps when working on multiplayer features:
 
 # Safe UI for replicated strings (mandatory)
 
-Replicated strings and `joinParams` are **untrusted for HTML**. The engine does
+Replicated strings and `joinParams` are untrusted for HTML. The engine does
 not sanitize them. Render as text; never as markup.
 
 | Do | Don't |
@@ -52,7 +52,7 @@ uiElement.setHTML(`<b>${playerName}</b>`);
 
 Details and `joinParams` validation: [ui-security](references/ui-security.md).
 Canonical player list: [player-list-safe](references/player-list-safe.md).
-General HUD rules: **Safe UI** in the `genesys-ui-kit` skill and
+General HUD rules: Safe UI in the `genesys-ui-kit` skill and
 [safe-ui](../genesys-ui-kit/references/safe-ui.md).
 
 # References

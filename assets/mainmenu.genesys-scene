@@ -1,0 +1,401 @@
+{
+  "$objects": [
+    {
+      "$bc": "THREE.DirectionalLight",
+      "$id": 1,
+      "$value": {
+        "_": [
+          {
+            "$bc": "c",
+            "_": [
+              0.545724,
+              0.283149,
+              0.061246
+            ]
+          },
+          16
+        ]
+      }
+    },
+    {
+      "$bc": "THREE.PerspectiveCamera",
+      "$id": 2,
+      "$value": {
+        "name": "Camera",
+        "uuid": "00d46d7a-4399-4bd6-9071-215c03840324"
+      }
+    }
+  ],
+  "$root": {
+    "$bc": "ENGINE.World",
+    "children": [
+      {
+        "$bc": "ENGINE.DirectionalLightNode",
+        "$initOptions": {
+          "castShadow": true,
+          "color": {
+            "$bc": "c",
+            "_": [
+              1,
+              0.930111,
+              0.83077
+            ]
+          },
+          "intensity": 10,
+          "isRoot": true,
+          "isSunLight": true,
+          "shadowBias": -0.001,
+          "shadowCameraBottom": -200,
+          "shadowCameraLeft": -200,
+          "shadowCameraRight": 200,
+          "shadowCameraTop": 200,
+          "shadowFar": 250,
+          "shadowMapSize": 2048,
+          "shadowNear": 0.1,
+          "shadowNormalBias": 0,
+          "shadowRadius": 3,
+          "useCsmShadows": false
+        },
+        "children": [
+          {
+            "$ref": 1
+          }
+        ],
+        "isSunLight": true,
+        "light": {
+          "$ref": 1
+        },
+        "name": "Directional Light",
+        "nodeId": 20945,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            34.1,
+            38.7,
+            -80.2
+          ]
+        },
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            1.396263,
+            -0.174533,
+            0
+          ]
+        },
+        "shadowBias": -0.001,
+        "shadowCameraBottom": -200,
+        "shadowCameraLeft": -200,
+        "shadowCameraRight": 200,
+        "shadowCameraTop": 200,
+        "shadowFar": 250,
+        "shadowMapSize": 2007.8,
+        "userData": {
+          "objectFlags": 6
+        },
+        "uuid": "7223c73249cb5131"
+      },
+      {
+        "$bc": "ENGINE.PlayerStart",
+        "$initOptions": {},
+        "children": {
+          "$length": 1
+        },
+        "editorData": {
+          "hidden": false
+        },
+        "name": "Player Start",
+        "nodeId": 12230,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            33.6,
+            1.1,
+            67.5
+          ]
+        },
+        "userData": {
+          "objectFlags": 6
+        },
+        "uuid": "223c73249cb51314"
+      },
+      {
+        "$bc": "ENGINE.SkyNode",
+        "$initOptions": {
+          "cloudDensity": 0.7,
+          "cloudElevation": 0.42,
+          "cloudSpeed": 0.00005,
+          "environmentMapIntensity": 1,
+          "generateEnvironmentMap": true,
+          "isRoot": true,
+          "mieDirectionalG": 0.85
+        },
+        "children": {
+          "$length": 1
+        },
+        "cloudCoverage": 0.45,
+        "cloudDensity": 0.6,
+        "cloudElevation": 0.42,
+        "cloudScale": 0.00056,
+        "cloudSpeed": 0.00005,
+        "editorData": {
+          "hidden": false
+        },
+        "environmentMapIntensity": 1.1,
+        "generateEnvironmentMap": true,
+        "mieDirectionalG": 0.85,
+        "name": "Sky",
+        "nodeId": 6353,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            0,
+            4,
+            0
+          ]
+        },
+        "rayleigh": 0.8,
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            0,
+            -0.872665,
+            0
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            10000,
+            10000,
+            10000
+          ]
+        },
+        "sunPosition": {
+          "$bc": "v3",
+          "_": [
+            0,
+            1.81,
+            0
+          ]
+        },
+        "turbidity": 10.4,
+        "userData": {
+          "objectFlags": 6
+        },
+        "uuid": "3c73249cb5131461"
+      },
+      {
+        "$bc": "GAME.WaterNode",
+        "children": {
+          "$length": 1
+        },
+        "material": {
+          "$bc": "THREE.MeshStandardMaterial",
+          "depthWrite": true,
+          "opacity": 1,
+          "transparent": false,
+          "uuid": "346f4fba-7c06-4ee4-8d89-e58d553880e6"
+        },
+        "name": "Water",
+        "nodeId": 53168,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            0,
+            0.16,
+            0
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "6684cca20df50131",
+        "waterOpacity": 1
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "modelUrl": "@project/assets/models/map revisi.glb",
+        "name": "Map",
+        "nodeId": 2202,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "userData": {
+          "isTransient": false,
+          "objectFlags": 4
+        },
+        "uuid": "a020ccb2-373b-40a2-b429-cf1feb858e20"
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "hiddenInGame": true,
+        "modelUrl": "@project/assets/models/map_collision2.glb",
+        "name": "Model Mesh",
+        "nodeId": 25626,
+        "physicsOptions": {
+          "collisionMeshType": "trimesh"
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "7393dc1179980698"
+      },
+      {
+        "$bc": "ENGINE.ViewTargetCameraNode",
+        "camera": {
+          "$ref": 2
+        },
+        "children": [
+          {
+            "$ref": 2
+          }
+        ],
+        "fov": 69,
+        "name": "View Target Camera",
+        "nodeId": 32830,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            28.4,
+            1.9,
+            47.9
+          ]
+        },
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            0.165806,
+            0.171042,
+            0
+          ]
+        },
+        "startActive": true,
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "e5b94e802e79585f"
+      },
+      {
+        "$bc": "GAME.MainMenuNode",
+        "name": "Main Menu",
+        "nodeId": 29661,
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "dc9819b4ba47a5ae"
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "children": [
+          {
+            "$bc": "ENGINE.AnimationStateMachineNode",
+            "configUrl": "@project/assets/animations/Barbarian.animconfig.json",
+            "name": "Animation State Machine",
+            "nodeId": 64868,
+            "uuid": "53ff1d38aa50ad43"
+          }
+        ],
+        "modelUrl": "@project/assets/models/Barbarian.glb",
+        "name": "Model Mesh 02",
+        "nodeId": 38254,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            33.6,
+            0.15,
+            67.5
+          ]
+        },
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            0,
+            3.14159,
+            0
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1.2,
+            1.2,
+            1.2
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "ae7cb0d62e621f82"
+      }
+    ],
+    "editorData": {
+      "sceneTree": {
+        "children": [
+          {
+            "id": "7223c73249cb5131",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "223c73249cb51314",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "3c73249cb5131461",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "6684cca20df50131",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "a020ccb2-373b-40a2-b429-cf1feb858e20",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "7393dc1179980698",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "e5b94e802e79585f",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "dc9819b4ba47a5ae",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "ae7cb0d62e621f82",
+            "isExpanded": false,
+            "nodeType": "actor"
+          }
+        ],
+        "id": "c73249cb51314610",
+        "nodeType": "scene"
+      }
+    },
+    "gameModeClass": null,
+    "postProcessConfiguration": {
+      "effects": [
+        {
+          "enabled": true,
+          "exposure": 0.5,
+          "mode": 4,
+          "type": "toneMapping"
+        }
+      ]
+    },
+    "resources": null,
+    "settings": {},
+    "uuid": "c73249cb51314610"
+  },
+  "$version": 3
+}

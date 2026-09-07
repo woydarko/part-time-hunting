@@ -127,7 +127,7 @@ remove manual margins from children.
 
 Order of escalation when the user wants a non-default look:
 
-1. **Presets first.** Eleven widgets ship `static readonly presets` that map
+1. Presets first. Eleven widgets ship `static readonly presets` that map
    to Game UI Kit variant names (including `ItemCard`). Spread a preset and add your own options:
    ```ts
    new ENGINE.Button(ui, { ...ENGINE.Button.presets.primaryLarge, label: 'Go' });
@@ -135,10 +135,10 @@ Order of escalation when the user wants a non-default look:
    ```
    All presets are also accessible via `ENGINE.UIPresets.<Widget>.<name>`.
    See the presets table in `../SKILL.md` for the full list.
-2. **Individual options.** When no preset is an exact match, set the options
+2. Individual options. When no preset is an exact match, set the options
    that differ individually — `variant`, `size`, `theme`, `style`, `color`,
    sizing fields, label text, etc.
-3. **`customClasses` + `customStyles`.** Shared on every `BaseUIComponentOptions`:
+3. `customClasses` + `customStyles`. Shared on every `BaseUIComponentOptions`:
    ```ts
    new ENGINE.ProgressBar(world.uiManager, {
      ...ENGINE.ProgressBar.presets.health,
@@ -148,10 +148,10 @@ Order of escalation when the user wants a non-default look:
    ```
    Pair `customClasses` with project-side CSS to do targeted overrides
    without forking the widget.
-4. **Subclass.** Extend the engine widget in your project and override
+4. Subclass. Extend the engine widget in your project and override
    `getInitialData()` / `cacheElements()` / `onInitialize()`. Keep the
    subclass in `src/ui/` of the game project.
-5. **New widget (last resort).** Only when no shipped widget can be
+5. New widget (last resort). Only when no shipped widget can be
    shaped to fit. Build a new `BaseUIComponent` subclass following the
    same conventions (template + styles under `assets/ui/`, register on
    the class via `static metadata`).
@@ -160,77 +160,79 @@ Order of escalation when the user wants a non-default look:
 
 ### Control
 
-- **`Button`** — `variant` (primary | secondary | accent | success | danger |
+- `Button` — `variant` (primary | secondary | accent | success | danger |
   ghost | outline), `size` (small | medium | large | extra-large), `icon`
   (HTML string for left icon slot), `disabled`, `loading`, `onClick`.
   Presets: `primary`, `primaryLarge`, `dangerSmall`, `accentXL`, … (28 total).
-- **`Toggle`** — `on` (boolean), `disabled`, `onChange`.
+- `Toggle` — `on` (boolean), `disabled`, `onChange`.
   Presets: `on`, `off`, `disabledOn`, `disabledOff`.
-- **`Input`** — `placeholder`, `value`, `disabled`, `onChange`, `onSubmit`.
+- `Input` — `placeholder`, `value`, `disabled`, `onChange`, `onBlur`.
 
 ### HUD
 
-- **`ProgressBar`** — `theme` (health | mana | stamina | experience | boss |
+- `ProgressBar` — `theme` (health | mana | stamina | experience | boss |
   custom), `size` (small | medium | large), `fillColor`, `backgroundColor`,
   `textDisplay` (none | value | percentage | both | custom), `animate`,
   `animationDuration`, `label`.
   Presets: `health`, `healthLarge`, `manaSmall`, `boss`, … (14 total).
-- **`StatBar`** — `theme` (shield | mana | stamina | energy), `value`,
+- `StatBar` — `theme` (shield | mana | stamina | energy), `value`,
   `maxValue`, `iconHtml`, `label`.
   Presets: `shield`, `mana`, `stamina`, `energy`.
-- **`Crosshair`** — `style` (dot | scope | x | bracket | circle | sniper),
+- `Crosshair` — `style` (dot | scope | x | bracket | circle | sniper),
   `size` (px), `color`, `accentColor`.
   Presets: `dot`, `scope`, `x`, `bracket`, `circle`, `sniper`.
-- **`Compass`** — `width`, `height`, `pixelsPerDegree`.
-- **`Minimap`** — `size`, `worldRadius`, `playerColor`, `targetColor`,
-  `backgroundColor`, `borderColor`.
-- **`WeaponCard`** — `weaponName`, `currentAmmo`, `maxAmmo`, `iconHtml`
+- `Compass` — `width`, `height`, `pixelsPerDegree`.
+- `Minimap` — `size`, `worldRadius`, `playerColor`, `targetColor`,
+  `cardinalColor`. (`backgroundColor` / `borderColor` are deprecated and
+  ignored — the glass surface comes from `minimap.css`.)
+- `WeaponCard` — `weaponName`, `currentAmmo`, `maxAmmo`, `iconHtml`
   (SVG/HTML for the 64×64 purple icon slot). Setters: `setWeapon(name, cur, max)`,
   `setAmmo(cur, max?)`, `setIconHtml(html)`.
-- **`AmmoCounter`** — `lowAmmoThreshold`, `showLowAmmoWarning`.
-- **`ReloadIndicator`** — `reloadDuration`, `text`, `color`.
+- `AmmoCounter` — `lowAmmoThreshold`, `showLowAmmoWarning`.
+- `ReloadIndicator` — `reloadDuration`, `text`, `color`.
 
 ### Data / Display
 
-- **`Badge`** — `color` (blue | purple | pink | cyan | green | orange | red |
+- `Badge` — `color` (blue | purple | pink | cyan | green | orange | red |
   yellow), `size` (small | medium | large), `label`, `dot` (leading dot).
   Presets: `blue`, `blueLarge`, `redSmall`, … (24 total).
-- **`Avatar`** — `size` (xs | sm | md | lg | xl), `status` (none | online |
+- `Avatar` — `size` (xs | sm | md | lg | xl), `status` (none | online |
   offline | away | busy), `initials`, `imageUrl`, `ringColor`.
   Presets: `xs` … `xl`, `online`, `offline`, `away`, `busy` (9 total).
-- **`Card`** — `variant` (default | glass | elevated), `title`, `subtitle`,
+- `Card` — `variant` (default | glass | elevated), `title`, `subtitle`,
   `body`.
   Presets: `default`, `glass`, `elevated`.
-- **`StatCard`** — `label`, `value` (string | number), `trend` (string,
+- `StatCard` — `label`, `value` (string | number), `trend` (string,
   auto-colored: "↑+12%" → green, "-3%" → red), `subtitle`, `iconHtml`
   (SVG/HTML for the 20×20 icon beside the label).
   Setters: `setLabel()`, `setValue()`, `setTrend()`, `setSubtitle()`, `setIconHtml()`.
-- **`ItemCard`** — `itemName`, `rarity` (common | uncommon | rare | epic |
+- `ItemCard` — `itemName`, `rarity` (common | uncommon | rare | epic |
   legendary), `imageHtml` (HTML/SVG for image area), `quantity` (0 = hidden),
   `price` (string | number, shown in yellow, empty = hidden). Rarity drives a
   composed `Badge` child — use `setRarity()` to swap it at runtime.
   Setters: `setItem(data)`, `setRarity()`, `setImageHtml()`, `setQuantity()`, `setPrice()`.
   Presets: `common`, `uncommon`, `rare`, `epic`, `legendary` (5 total).
-- **`Keystroke`** — `size` (small | medium | large), `key` (label text).
+- `Keystroke` — `size` (small | medium | large), `key` (label text).
   Presets: `small`, `medium`, `large`.
-- **`NumberDisplay`** — `prefix`, `suffix`, `decimalPlaces`, `minValue`,
+- `NumberDisplay` — `prefix`, `suffix`, `decimalPlaces`, `minValue`,
   `maxValue`, `animate`, `animationDuration`.
-- **`InventoryBar`** / **`InventoryGrid`** — `slotCount` (bar) or
+- `InventoryBar` / `InventoryGrid` — `slotCount` (bar) or
   `rows`/`columns` (grid), `slotSize`, `slotGap`, `itemRenderer`,
   `slotClearer`.
-- **`ControlsPanel`** — `controls` (array of `{ key, description }`), `title`.
+- `ControlsPanel` — `controls` (array of `{ key, description }`), `title`.
 
 ### Feedback
 
-- **`Achievement`** — no constructor options; call `show(opts)` with `title`,
+- `Achievement` — no constructor options; call `show(opts)` with `title`,
   `description`, `iconHtml`, `rarity` (common | uncommon | rare | epic |
   legendary), `duration` (ms).
   Presets are for `show()`: `Achievement.presets.legendary`, … (5 total).
-- **`Tooltip`** — `content`, `placement` (top | bottom | left | right).
-- **`Message`** / **`CenterMessage`** — `text`, `duration`, `style`.
-- **`ChatMessage`** — `author`, `text`, `system` (boolean).
-- **`NavItem`** — `label`, `icon`, `active`, `onClick`.
-- **`NotificationBadge`** — `count`, `mode` (count | dot).
+- `Tooltip` — `text`, `placement` (top | bottom | left | right), `offset`, `target`.
+- `Message` — `setMessage({ name, body, color, iconHtml })`.
+- `CenterMessage` — `show({ title, subtitle, color, duration })`.
+- `ChatMessage` — `name`, `body`, `system` (boolean), `timestamp`, `color`.
+- `NavItem` — `label`, `iconHtml`, `active`, `badgeCount`, `onClick`.
+- `NotificationBadge` — `count`, `mode` (count | dot).
 
 ## When to ask the user
 

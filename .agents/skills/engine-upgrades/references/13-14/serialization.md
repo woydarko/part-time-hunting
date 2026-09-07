@@ -43,9 +43,9 @@ const copy = root ? ENGINE.WorldSerializer.duplicateNode(root) : null;
 
 ## Persist V3 on disk
 
-Supported V1/V2 scenes and prefabs migrate **in memory** on normal
+Supported V1/V2 scenes and prefabs migrate in memory on normal
 `WorldSerializer` / `PrefabManager` / editor load. On-disk files stay at the old
-`$version` until you **save**. After upgrading: open each scene and prefab,
+`$version` until you save. After upgrading: open each scene and prefab,
 inspect hierarchy/transforms/prefab overrides, then save. There is no 13→14
 disk codemod — persistence is open → inspect → save.
 
@@ -57,7 +57,7 @@ Do not hand-edit `.genesys-scene` / `.prefab.json` for this migration. Engine
 loaders redirect many registered `ENGINE.*` names (not only `*Component` →
 `*Node` — also aliases such as `InfoActor` → `InfoNode`, `VRActor` → `VRNode`,
 `SkyboxComponent` → `SceneEnvironmentNode`, and other stamped renames). Custom
-`GAME.*` class names are **not** auto-redirected. If you rename a game class
+`GAME.*` class names are not auto-redirected. If you rename a game class
 (e.g. `GAME.CollectibleActor` → `GAME.CollectibleNode`), register a redirect
 so existing scenes/prefabs keep loading:
 

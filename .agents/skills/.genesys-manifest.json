@@ -3,15 +3,21 @@
   "skills": [
     "asset-pack-authoring",
     "behavior-tree",
+    "engine-reference",
+    "engine-search",
     "engine-upgrades",
+    "genesys-audio",
     "genesys-editor-manual",
     "genesys-engine",
     "genesys-mcp-orchestrator",
+    "genesys-movement",
     "genesys-multiplayer",
+    "genesys-navigation",
+    "genesys-physics",
+    "genesys-prefabs",
     "genesys-ui-kit",
+    "genesys-vfx",
     "pickups-interactions-and-doors",
-    "ptc-engine-reference",
-    "ptc-engine-search",
     "webgpu-tsl-node-material-assets"
   ]
 }

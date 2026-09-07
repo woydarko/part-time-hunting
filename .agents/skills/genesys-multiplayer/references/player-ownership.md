@@ -41,9 +41,9 @@ override beginPlay(): boolean {
 }
 ```
 
-`spawnOwnerOnly` journals the spawn for a single-client audience and stamps `netOwningClientId` on every `ReplicationInfo` in the spawned tree — other clients never receive it. For individual **properties** on an already-shared node, use `net: { replicateTo: 'owner' }` instead (see [node-replication](node-replication.md)).
+`spawnOwnerOnly` journals the spawn for a single-client audience and stamps `netOwningClientId` on every `ReplicationInfo` in the spawned tree — other clients never receive it. For individual properties on an already-shared node, use `net: { replicateTo: 'owner' }` instead (see [node-replication](node-replication.md)).
 
-> **Deprecated `Actor` compatibility:** `Actor.onlyRelevantToOwner = true` is a compatibility flag on the deprecated `Actor` shell that restricts replication of that one actor to its owning client. It has no `SceneNode`/`PrimitiveNode` equivalent. Prefer `MultiplayerSpawner.spawnOwnerOnly` or per-property `replicateTo: 'owner'` in new code.
+> Deprecated `Actor` compatibility: `Actor.onlyRelevantToOwner = true` is a compatibility flag on the deprecated `Actor` shell that restricts replication of that one actor to its owning client. It has no `SceneNode`/`PrimitiveNode` equivalent. Prefer `MultiplayerSpawner.spawnOwnerOnly` or per-property `replicateTo: 'owner'` in new code.
 
 ## Input Flow for the Controlled Pawn
 
@@ -72,7 +72,7 @@ Do not modify game state (health, ammo, scores) directly from client input handl
 
 `CharacterPawn` and `CharacterMovementNode` include client-side prediction and server reconciliation automatically. The engine applies input locally on the client immediately for smooth feel, then corrects the position if the server disagrees. This is handled internally; no extra code is required when using these classes.
 
-For custom nodes that need prediction, implement the prediction logic manually and use `@ServerRPC` to send input sequences with a tick counter. Consult `InputBuffer.ts` and `MovementPrediction.ts` in engine source for the pattern used by `CharacterPawn`.
+For custom nodes that need prediction, implement the prediction logic manually and use `@ServerRPC` to send input sequences with a tick counter. Consult `MovementPrediction.ts` (`NetMovementPredictor`) in engine source for the buffering/reconciliation pattern used by `CharacterPawn`.
 
 ## Accessing the Local Player
 

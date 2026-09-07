@@ -22,10 +22,10 @@ The editor bumps `@gnsx/genesys.js` in `package.json` when it opens the project,
 5. Run migration utilities referenced by any applied guide in dry-run mode first. Do not apply until the dry run reports zero blocked files and zero unresolved references.
 6. After each reference file, run `pnpm build` then `pnpm lint`.
 7. When a step is ambiguous, confirm the new signature in `.engine/`.
-8. **Safe UI:** search the project for `innerHTML`, `setHTML`, `setIconHtml`,
+8. Safe UI: search the project for `innerHTML`, `setHTML`, `setIconHtml`,
    `imageHtml`, and `setIcon` used with player names, chat, or other replicated /
    join strings. Prefer `textContent` or UI kit text setters. See the
-   `genesys-ui-kit` **Safe UI** section and `genesys-multiplayer`
+   `genesys-ui-kit` Safe UI section and `genesys-multiplayer`
    [player-list-safe](../genesys-multiplayer/references/player-list-safe.md).
 
 # Version references
@@ -37,3 +37,4 @@ Major-bump files are named `references/<oldMajor>-<newMajor>.md`. In-major files
 - [13 → 14](references/13-14.md)
 - [13.x — in-major changes](references/13.x.md)
 - [14.x — in-major changes](references/14.x.md)
+- [15 → 16](references/15-16.md)

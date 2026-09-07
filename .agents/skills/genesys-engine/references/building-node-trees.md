@@ -10,11 +10,11 @@ SceneNodes extend Three.js Object3D and form a modular parent–child tree under
 
 ## Node types
 
-**SceneNode** — Base class. Transform, lifecycle, tags, discovery.
+SceneNode — Base class. Transform, lifecycle, tags, discovery.
 
-**PrimitiveNode** — Geometry and physics. Collision/overlap delegates; `physicsOptions` (motionType, collisionProfile, contributeToParentCollider).
+PrimitiveNode — Geometry and physics. Collision/overlap delegates; `physicsOptions` (motionType, collisionProfile, contributeToParentCollider).
 
-**Specialized nodes** — MeshNode, ModelMeshNode, lights, cameras, movement, interaction, etc. under `.engine/src/nodes/`.
+Specialized nodes — MeshNode, ModelMeshNode, lights, cameras, movement, interaction, etc. under `.engine/src/nodes/`.
 
 ## Ownership
 
@@ -47,12 +47,12 @@ const childMesh = someNode.getNode(ENGINE.MeshNode);
 
 ```typescript
 parent.add(child);
-child.removeFromParent();
+child.destroy(); // teardown; use removeFromParent() only to reparent
 ```
 
 ### Compound placeables and physics
 
-When a placeable has multiple physical pieces, the **root** typically owns the rigid body (`contributeToParentCollider: false` on the root's physics). Former body children contribute colliders with `contributeToParentCollider: true`. See `engine-upgrades` → `13-14/hierarchy.md`.
+When a placeable has multiple physical pieces, the root typically owns the rigid body (`contributeToParentCollider: false` on the root's physics). Former body children contribute colliders with `contributeToParentCollider: true`. See `engine-upgrades` → `13-14/hierarchy.md`.
 
 Single mesh placeables: promote the mesh itself with `isRoot: true` — do not wrap a lone child in an empty PrimitiveNode.
 

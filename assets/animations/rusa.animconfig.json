@@ -1,0 +1,76 @@
+{
+  "$root": {
+    "$bc": "ENGINE.AnimationConfigResource",
+    "autoPlay": true,
+    "parameters": {
+      "speed": 0
+    },
+    "initialState": "idle",
+    "states": {
+      "idle": {
+        "clip": "Armature|Deer_Idle",
+        "transitions": [
+          {
+            "to": "walk",
+            "condition": {
+              "speed": {
+                "greaterThan": 0.3
+              }
+            },
+            "blendDuration": 0.3
+          }
+        ]
+      },
+      "walk": {
+        "clip": "Armature|Deer_Walk",
+        "transitions": [
+          {
+            "to": "idle",
+            "condition": {
+              "speed": {
+                "lessThanOrEqual": 0.3
+              }
+            },
+            "blendDuration": 0.3
+          },
+          {
+            "to": "run",
+            "condition": {
+              "speed": {
+                "greaterThan": 1.0
+              }
+            },
+            "blendDuration": 0.25
+          }
+        ]
+      },
+      "run": {
+        "clip": "Armature|Deer_Run",
+        "transitions": [
+          {
+            "to": "walk",
+            "condition": {
+              "speed": {
+                "lessThanOrEqual": 1.0
+              }
+            },
+            "blendDuration": 0.25
+          }
+        ]
+      }
+    },
+    "clipOptions": {
+      "Armature|Deer_Idle": {
+        "loop": "LoopRepeat"
+      },
+      "Armature|Deer_Walk": {
+        "loop": "LoopRepeat"
+      },
+      "Armature|Deer_Run": {
+        "loop": "LoopRepeat"
+      }
+    },
+    "oneShotClips": []
+  },
+  "$version": 2
+}

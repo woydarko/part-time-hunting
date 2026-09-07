@@ -3,8 +3,209 @@
 
 import { registerGeneratedClassMetadata, registerGeneratedPropertyMetadata } from '@gnsx/genesys.js';
 
+import { WildAnimal } from './animals/WildAnimal.js';
+import { AnimalSpawner } from './nodes/AnimalSpawner.js';
+import { NpcIdleController } from './nodes/NpcIdleController.js';
+import { ShopkeeperInteractable } from './nodes/ShopkeeperInteractable.js';
+import { WaterNode } from './nodes/WaterNode.js';
 
 export function registerMetadata(): void {
+  registerGeneratedClassMetadata(WildAnimal, { description: "WildAnimal - one huntable animal (built in code, no prefab). It shows the animal GLB and drives a\nlocomotion animconfig via a `speed` parameter (0 = idle, >0.5 = walk, >3 = run), so the walk/run\ncycle follows its actual movement with smooth blends.\n\nBehaviour is PROVOKED: it wanders peacefully until it takes damage, then reacts for\n`provokeDuration` seconds — a flee animal (aggressive = false) runs away zigzag; an aggressive\nanimal chases and attacks. Configure per species with" });
+  registerGeneratedPropertyMetadata(WildAnimal, {
+      "modelUrl": {
+        "type": "string"
+      },
+      "animConfigUrl": {
+        "type": "string"
+      },
+      "modelScale": {
+        "type": "number"
+      },
+      "yawOffset": {
+        "type": "number"
+      },
+      "spawnMarkerName": {
+        "type": "string"
+      },
+      "spawnOffsetX": {
+        "type": "number"
+      },
+      "spawnOffsetZ": {
+        "type": "number"
+      },
+      "species": {
+        "type": "string"
+      },
+      "health": {
+        "type": "number"
+      },
+      "aggressive": {
+        "type": "boolean"
+      },
+      "provokeDuration": {
+        "type": "number"
+      },
+      "fleeWhenNear": {
+        "type": "number"
+      },
+      "wanderRadius": {
+        "type": "number"
+      },
+      "wanderSpeed": {
+        "type": "number"
+      },
+      "idleMinTime": {
+        "type": "number"
+      },
+      "idleMaxTime": {
+        "type": "number"
+      },
+      "fleeSpeed": {
+        "type": "number"
+      },
+      "fleeZigzag": {
+        "type": "number"
+      },
+      "chaseSpeed": {
+        "type": "number"
+      },
+      "attackRange": {
+        "type": "number"
+      },
+      "attackCooldown": {
+        "type": "number"
+      },
+      "attackClip": {
+        "type": "string"
+      },
+      "attackDuration": {
+        "type": "number"
+      },
+      "attackDamage": {
+        "type": "number"
+      },
+      "attackStrikeDelay": {
+        "type": "number"
+      },
+      "knockbackForce": {
+        "type": "number"
+      },
+      "turnSpeed": {
+        "type": "number"
+      },
+      "homeLeash": {
+        "type": "number"
+      },
+      "maxStepUp": {
+        "type": "number"
+      },
+      "waterLevel": {
+        "type": "number"
+      },
+      "lookAhead": {
+        "type": "number"
+      },
+      "dustScale": {
+        "type": "number"
+      },
+      "footBoneNames": {
+        "type": "string"
+      },
+      "hopDust": {
+        "type": "boolean"
+      },
+      "hopPuffInterval": {
+        "type": "number"
+      },
+      "hopHeight": {
+        "type": "number"
+      },
+      "hitboxWidth": {
+        "type": "number"
+      },
+      "hitboxHeight": {
+        "type": "number"
+      },
+      "hitboxLength": {
+        "type": "number"
+      }
+    });
+
+  registerGeneratedPropertyMetadata(AnimalSpawner, {
+      "respawnDelay": {
+        "type": "number"
+      }
+    });
+
+  registerGeneratedPropertyMetadata(NpcIdleController, {
+      "minInterval": {
+        "type": "number"
+      },
+      "maxInterval": {
+        "type": "number"
+      },
+      "gestureHold": {
+        "type": "number"
+      }
+    });
+
+  registerGeneratedPropertyMetadata(ShopkeeperInteractable, {
+      "promptText": {
+        "type": "string"
+      },
+      "menuKind": {
+        "type": "string"
+      },
+      "greetHold": {
+        "type": "number"
+      },
+      "faceYawOffsetDeg": {
+        "type": "number"
+      },
+      "areaNodeName": {
+        "type": "string"
+      },
+      "iconHeight": {
+        "type": "number"
+      },
+      "iconScale": {
+        "type": "number"
+      },
+      "camNodeName": {
+        "type": "string"
+      },
+      "camDistance": {
+        "type": "number"
+      },
+      "camHeight": {
+        "type": "number"
+      },
+      "camFocusHeight": {
+        "type": "number"
+      },
+      "camFrameYaw": {
+        "type": "number"
+      },
+      "camFramePitch": {
+        "type": "number"
+      },
+      "camLerp": {
+        "type": "number"
+      }
+    });
+
+  registerGeneratedPropertyMetadata(WaterNode, {
+      "size": {
+        "type": "number"
+      },
+      "waterOpacity": {
+        "type": "number"
+      },
+      "waterColor": {
+        "type": "string"
+      }
+    });
+
 }
 
 // Deferred to avoid circular reference issues during module initialization

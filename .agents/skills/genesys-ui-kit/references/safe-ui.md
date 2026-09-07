@@ -7,13 +7,13 @@ strings, also follow the `genesys-multiplayer` skill
 ## Default: escaped text in templates
 
 `UILayout` HTML-escapes all `{{key}}` mustache values. User-facing labels,
-chat lines, and numeric strings in templates are safe **as text content**.
+chat lines, and numeric strings in templates are safe as text content.
 
 Unknown keys are left unchanged (`{{missing}}` stays literal).
 
 ## Trusted HTML: `*Html` and `setHTML`
 
-These APIs **parse markup**. Only pass developer-controlled strings (static
+These APIs parse markup. Only pass developer-controlled strings (static
 SVG, bundled icons such as `ENGINE.Icons.*`).
 
 | API | Use for |
@@ -22,29 +22,29 @@ SVG, bundled icons such as `ENGINE.Icons.*`).
 | `ItemCard` / `WeaponCard` — `imageHtml` | Trusted thumbnail markup |
 | `UIElement.setHTML()` | Rare; full layout fragments you author |
 
-**Never** pass player names, chat, RPC payloads, or `joinParams` into `*Html`
+Never pass player names, chat, RPC payloads, or `joinParams` into `*Html`
 setters. Options and setters carry `@remarks Trusted markup only` in the
 engine types.
 
 ## `customStyles` (trusted theming)
 
-`customStyles` applies inline styles after an **allowlist**:
+`customStyles` applies inline styles after an allowlist:
 
 - Allowed: colors, borders, spacing, typography, flex helpers, `--*` custom properties
 - Blocked: overlay/stacking (`position`, `z-index`, `inset`, `pointer-events`, `transform`, …)
 - Values: no `;{}`, `url(`, or `expression(`
 
-Still **developer-trusted** — do not feed network/player strings. Prefer
+Still developer-trusted — do not feed network/player strings. Prefer
 `customClasses` + CSS for layout or full-screen effects.
 
 ## Init vs update
 
 | Phase | Behavior |
 |-------|----------|
-| **Init** | Template → DOM. User strings in mustache slots are escaped. |
-| **Update** | Prefer setters that assign `textContent` or DOM properties (`setLabel`, `setMessage`, …). |
+| Init | Template → DOM. User strings in mustache slots are escaped. |
+| Update | Prefer setters that assign `textContent` or DOM properties (`setLabel`, `setMessage`, …). |
 
-For **trusted HTML** (icons, slot scaffolding), inject on dedicated elements
+For trusted HTML (icons, slot scaffolding), inject on dedicated elements
 in `onInitialize()` / `onBeforeCacheElements()` — not via mustache slots.
 
 ## Dynamic user input (`Input`)

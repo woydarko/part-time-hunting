@@ -103,7 +103,7 @@ specific changes:
 - `world.setActorHiddenInGame()` and
   `world.setSceneComponentHiddenInGame()` become
   `node.setHiddenInGame()`.
-  **Do not** call `this.rootComponent.setHiddenInGame(...)` from an
+  Do not call `this.rootComponent.setHiddenInGame(...)` from an
   `Actor` subclass override — `rootComponent` is `this`, so that recurses
   forever. Use `super.setHiddenInGame(hidden)` and then mutate `this` /
   children (see [hierarchy.md](hierarchy.md) trap).

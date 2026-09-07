@@ -1,0 +1,8 @@
+{
+  "$root": {
+    "$bc": "ENGINE.MeshStandardNodeMaterialAsset",
+    "name": "M_Dagger",
+    "mapPath": "@project/assets/textures/rogue_texture.png"
+  },
+  "$version": 3
+}

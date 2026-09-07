@@ -16,38 +16,6 @@
           10
         ]
       }
-    },
-    {
-      "$bc": "THREE.BoxGeometry",
-      "$id": 2,
-      "$value": {
-        "_": [
-          500,
-          0.1,
-          500
-        ]
-      }
-    },
-    {
-      "$bc": "THREE.MeshStandardMaterial",
-      "$id": 3,
-      "$value": {
-        "color": {
-          "$bc": "c",
-          "_": [
-            0.85,
-            0.85,
-            0.85
-          ]
-        },
-        "map": {
-          "$bc": "$global",
-          "name": "DefaultTexture"
-        },
-        "name": "GroundMaterial",
-        "roughness": 0.95,
-        "uuid": "27223c73249cb513"
-      }
     }
   ],
   "$root": {
@@ -115,68 +83,33 @@
         "shadowCameraTop": 200,
         "shadowFar": 250,
         "userData": {
-          "objectFlags": 2
+          "objectFlags": 6
         },
         "uuid": "7223c73249cb5131"
       },
       {
         "$bc": "ENGINE.PlayerStart",
         "$initOptions": {},
+        "children": {
+          "$length": 1
+        },
+        "editorData": {
+          "hidden": false
+        },
         "name": "Player Start",
         "nodeId": 12230,
         "position": {
           "$bc": "v3",
           "_": [
-            0,
-            0.9,
-            0
+            33.6,
+            1.1,
+            67.5
           ]
+        },
+        "userData": {
+          "objectFlags": 6
         },
         "uuid": "223c73249cb51314"
-      },
-      {
-        "$bc": "ENGINE.MeshNode",
-        "$initOptions": {
-          "geometry": {
-            "$ref": 2
-          },
-          "isRoot": true,
-          "material": {
-            "$ref": 3
-          },
-          "physicsOptions": {
-            "collisionProfile": "BlockAll",
-            "enabled": true,
-            "motionType": "static"
-          },
-          "receiveShadow": true,
-          "uvScaleTilesPerUnit": 0.2
-        },
-        "children": {
-          "$length": 1
-        },
-        "geometry": {
-          "$ref": 2
-        },
-        "material": {
-          "$ref": 3
-        },
-        "name": "Ground",
-        "nodeId": 37990,
-        "position": {
-          "$bc": "v3",
-          "_": [
-            0,
-            -0.9,
-            0
-          ]
-        },
-        "receiveShadow": true,
-        "userData": {
-          "objectFlags": 2
-        },
-        "uuid": "23c73249cb513146",
-        "uvScaleTilesPerUnit": 0.2
       },
       {
         "$bc": "ENGINE.SkyNode",
@@ -189,13 +122,25 @@
           "isRoot": true,
           "mieDirectionalG": 0.85
         },
+        "children": {
+          "$length": 1
+        },
         "cloudDensity": 0.7,
         "cloudElevation": 0.42,
+        "cloudScale": 0.00081,
         "cloudSpeed": 0.00005,
         "generateEnvironmentMap": true,
         "mieDirectionalG": 0.85,
         "name": "Sky",
         "nodeId": 6353,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            0,
+            4,
+            0
+          ]
+        },
         "scale": {
           "$bc": "v3",
           "_": [
@@ -205,12 +150,703 @@
           ]
         },
         "userData": {
-          "objectFlags": 2
+          "objectFlags": 6
         },
         "uuid": "3c73249cb5131461"
+      },
+      {
+        "$bc": "GAME.WaterNode",
+        "children": {
+          "$length": 1
+        },
+        "material": {
+          "$bc": "THREE.MeshStandardMaterial",
+          "depthWrite": true,
+          "opacity": 1,
+          "transparent": false,
+          "uuid": "346f4fba-7c06-4ee4-8d89-e58d553880e6"
+        },
+        "name": "Water",
+        "nodeId": 53168,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            0,
+            0.16,
+            0
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "6684cca20df50131",
+        "waterOpacity": 1
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "children": [
+          {
+            "$bc": "ENGINE.AnimationStateMachineNode",
+            "configUrl": "@project/assets/animations/Rogue.animconfig.json",
+            "name": "Animation State Machine",
+            "nodeId": 4972,
+            "uuid": "168d8a9960605629"
+          },
+          {
+            "$bc": "GAME.NpcIdleController",
+            "name": "NPC IDle Controller",
+            "nodeId": 59681,
+            "uuid": "5dd04f53ac358211"
+          },
+          {
+            "$bc": "GAME.ShopkeeperInteractable",
+            "camDistance": 0.7,
+            "camFramePitch": -50,
+            "camFrameYaw": 18,
+            "camHeight": -0.8,
+            "name": "Shopkeeper Interactable",
+            "nodeId": 56135,
+            "proximityRange": 3,
+            "uuid": "f67be88726d55a6b"
+          },
+          {
+            "$bc": "ENGINE.MeshNode",
+            "children": {
+              "$length": 1
+            },
+            "editorData": {
+              "hidden": false
+            },
+            "hiddenInGame": true,
+            "name": "ShopArea",
+            "nodeId": 53696,
+            "physicsOptions": {
+              "enabled": false
+            },
+            "position": {
+              "$bc": "v3",
+              "_": [
+                0.455,
+                0.455,
+                3.182
+              ]
+            },
+            "rotation": {
+              "$bc": "e",
+              "_": [
+                0,
+                -0.174533,
+                0
+              ]
+            },
+            "scale": {
+              "$bc": "v3",
+              "_": [
+                11.909,
+                0.727,
+                8.5
+              ]
+            },
+            "uuid": "36ed0550-9f81-4df5-b83e-58feb1997d38"
+          }
+        ],
+        "modelUrl": "@project/assets/models/Rogue.glb",
+        "name": "Rogue",
+        "nodeId": 8866,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            33.7,
+            0.3,
+            64.9
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            0.22,
+            0.22,
+            0.22
+          ]
+        },
+        "userData": {
+          "isTransient": false,
+          "objectFlags": 4
+        },
+        "uuid": "8267061c-f4af-4050-b7b4-c8f14261a8aa"
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "modelUrl": "@project/assets/models/map revisi.glb",
+        "name": "Map",
+        "nodeId": 2202,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "userData": {
+          "isTransient": false,
+          "objectFlags": 4
+        },
+        "uuid": "a020ccb2-373b-40a2-b429-cf1feb858e20"
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "hiddenInGame": true,
+        "modelUrl": "@project/assets/models/map_collision2.glb",
+        "name": "Model Mesh",
+        "nodeId": 25626,
+        "physicsOptions": {
+          "collisionMeshType": "trimesh"
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "7393dc1179980698"
+      },
+      {
+        "$bc": "ENGINE.ModelMeshNode",
+        "children": [
+          {
+            "$bc": "ENGINE.AnimationStateMachineNode",
+            "configUrl": "@project/assets/animations/Rogue.animconfig.json",
+            "name": "Animation State Machine 02",
+            "nodeId": 8102,
+            "uuid": "4e33c761d0486e24"
+          },
+          {
+            "$bc": "GAME.NpcIdleController",
+            "name": "NPC IDle Controller 02",
+            "nodeId": 39858,
+            "uuid": "7f8e247027aa63c7"
+          },
+          {
+            "$bc": "GAME.ShopkeeperInteractable",
+            "areaNodeName": "BuyArea",
+            "camDistance": 0.7,
+            "camFramePitch": -45,
+            "camFrameYaw": 18,
+            "camHeight": -0.8,
+            "camLerp": 15,
+            "menuKind": "gear",
+            "name": "Shopkeeper Interactable 02",
+            "nodeId": 52430,
+            "promptText": "Press E to browse gear",
+            "uuid": "d2869ffa1d743c00"
+          }
+        ],
+        "modelUrl": "@project/assets/models/Ranger.glb",
+        "name": "Ranger",
+        "nodeId": 42409,
+        "position": {
+          "$bc": "v3",
+          "_": [
+            34.1,
+            0.425,
+            71.9
+          ]
+        },
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            -3.141593,
+            -0.349066,
+            -3.141593
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            0.19,
+            0.19,
+            0.19
+          ]
+        },
+        "userData": {
+          "isTransient": false,
+          "objectFlags": 4
+        },
+        "uuid": "25bc812e-008c-4a0c-8144-9fe9fdb722dd"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "BuyArea",
+        "nodeId": 21510,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            33.7,
+            0.5,
+            71.685
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1.84,
+            0.2,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "9aa15031-a8c3-4458-8018-165882d23fdb"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1)",
+        "nodeId": 41979,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            38,
+            1,
+            23.1
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "7a49eea0-adcf-4004-9b99-da20fe0432ca"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 02",
+        "nodeId": 57118,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            18.7,
+            0.8,
+            25.3
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "363ff4cf860d8221"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 03",
+        "nodeId": 51397,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            49.4,
+            0.7,
+            -9.8
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "9a2ae8bcd81ded86"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 04",
+        "nodeId": 20452,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            58,
+            1,
+            -2.9
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "fd08404d680d46e0"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 05",
+        "nodeId": 43546,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            1.2,
+            2.1,
+            -26.25
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "6868834e3a6a3474"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 06",
+        "nodeId": 39606,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            9.8,
+            0.8,
+            -4.8
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "4a0c16ee2b447af8"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P1) 07",
+        "nodeId": 25097,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            -3,
+            0.6,
+            3.3
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "2275adf1ef3e8ecb"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P2) 08",
+        "nodeId": 23198,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            -24.6,
+            2,
+            45.8
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "e804bb0b2629d233"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P2) 09",
+        "nodeId": 29841,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            -71.4,
+            2.1,
+            18.6
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "64148c02e8152450"
+      },
+      {
+        "$bc": "ENGINE.MeshNode",
+        "children": {
+          "$length": 1
+        },
+        "hiddenInGame": true,
+        "name": "AnimalSpawnPoint (P2) 10",
+        "nodeId": 18929,
+        "physicsOptions": {
+          "enabled": false
+        },
+        "position": {
+          "$bc": "v3",
+          "_": [
+            -65,
+            2,
+            -21.7
+          ]
+        },
+        "scale": {
+          "$bc": "v3",
+          "_": [
+            1,
+            0.12,
+            1
+          ]
+        },
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "c608536806ca0d71"
+      },
+      {
+        "$bc": "GAME.AnimalSpawner",
+        "name": "Animal Spawner",
+        "nodeId": 15574,
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "0a60ffbb6ee0ccad"
       }
     ],
-    "editorData": {},
+    "editorData": {
+      "sceneTree": {
+        "children": [
+          {
+            "id": "7223c73249cb5131",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "223c73249cb51314",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "3c73249cb5131461",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "6684cca20df50131",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "8267061c-f4af-4050-b7b4-c8f14261a8aa",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "a020ccb2-373b-40a2-b429-cf1feb858e20",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "7393dc1179980698",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "25bc812e-008c-4a0c-8144-9fe9fdb722dd",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "9aa15031-a8c3-4458-8018-165882d23fdb",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "7a49eea0-adcf-4004-9b99-da20fe0432ca",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "363ff4cf860d8221",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "9a2ae8bcd81ded86",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "fd08404d680d46e0",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "6868834e3a6a3474",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "4a0c16ee2b447af8",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "2275adf1ef3e8ecb",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "e804bb0b2629d233",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "64148c02e8152450",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "c608536806ca0d71",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "0a60ffbb6ee0ccad",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "e5b94e802e79585f",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "dc9819b4ba47a5ae",
+            "isExpanded": false,
+            "nodeType": "actor"
+          }
+        ],
+        "id": "c73249cb51314610",
+        "nodeType": "scene"
+      }
+    },
     "gameModeClass": null,
     "postProcessConfiguration": {
       "effects": [

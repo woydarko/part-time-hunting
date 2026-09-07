@@ -63,7 +63,7 @@ Runtime API: `setZoomDistance()`, `getZoomDistance()` (camera local Z only).
 
 ## Presets
 
-**Keyboard-only overhead (engine demo default):**
+Keyboard-only overhead (engine demo default):
 
 ```typescript
 ENGINE.TopDownMovementNode.create({
@@ -73,7 +73,7 @@ ENGINE.TopDownMovementNode.create({
 })
 ```
 
-**RTS mouse camera (replaces old `screenRelative` + `PanCameraRigComponent`):**
+RTS mouse camera (replaces old `screenRelative` + `PanCameraRigComponent`):
 
 ```typescript
 ENGINE.TopDownMovementNode.create({

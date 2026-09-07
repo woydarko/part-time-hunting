@@ -1,0 +1,50 @@
+{
+  "$root": {
+    "$bc": "ENGINE.AnimationConfigResource",
+    "autoPlay": true,
+    "parameters": {
+      "speed": 0
+    },
+    "initialState": "idle",
+    "states": {
+      "idle": {
+        "clip": "Armature|Rabbit_Idle",
+        "transitions": [
+          {
+            "to": "hop",
+            "condition": {
+              "speed": {
+                "greaterThan": 0.3
+              }
+            },
+            "blendDuration": 0.15
+          }
+        ]
+      },
+      "hop": {
+        "clip": "Armature|Rabbit_Jump",
+        "transitions": [
+          {
+            "to": "idle",
+            "condition": {
+              "speed": {
+                "lessThanOrEqual": 0.3
+              }
+            },
+            "blendDuration": 0.15
+          }
+        ]
+      }
+    },
+    "clipOptions": {
+      "Armature|Rabbit_Idle": {
+        "loop": "LoopRepeat"
+      },
+      "Armature|Rabbit_Jump": {
+        "loop": "LoopRepeat"
+      }
+    },
+    "oneShotClips": []
+  },
+  "$version": 2
+}

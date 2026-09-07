@@ -20,8 +20,8 @@ Before first mutation:
 ```
 
 - Known ids (from `@scene/Name [nodeUuid=…]`, selection, or a prior find): call `getDetails(componentIds=[…])` first — skip name `find`.
-- **One name substring:** `find` with `query: '<string>'` (plain string only — never `{ name: [...] }`).
-- **Several exact names or subtree count:** one `getTree(limit)` then filter/walk in script — **never** call both `find` and `getTree` for the same question.
+- One name substring: `find` with `query: '<string>'` (plain string only — never `{ name: [...] }`).
+- Several exact names or subtree count: one `getTree(limit)` then filter/walk in script — never call both `find` and `getTree` for the same question.
 - Prefer `find` / bounded `getTree` for discovery; reserve `getDetails` for chosen ids.
 - `find` / `getTree` return a flat `nodes[]` with `parentId` and direct `childIds`. A `query` filter matches nodes only — it does not expand a subtree.
 - Trust `childIds` on the first find hit; do not re-probe with `getTree` for the same name.
@@ -115,12 +115,12 @@ Trust the first `find` match set; widen the query only for criteria the user nam
 
 ## Add nodes (roots and children)
 
-- **Single world root:** `query_editor(getState)` → `action_node(add, className="ENGINE.MeshNode")` (omit/`null` `parentComponentId`) → optional `setProperties` → `action_scene(save)`.
-- **Child under a parent:** `action_node(add, className=…, parentComponentId=<parentUuid>)`.
-- **Computed / discovered placement:** one `run_script(apply)` loop of `actionNode({ action: 'add', className, … })` then `setProperties` / save; return `{ created, saved, counts }` only.
-- **Already-known fixed list:** `batch_execute` with N `action_node.add` ops (or `foreach`).
+- Single world root: `query_editor(getState)` → `action_node(add, className="ENGINE.MeshNode")` (omit/`null` `parentComponentId`) → optional `setProperties` → `action_scene(save)`.
+- Child under a parent: `action_node(add, className=…, parentComponentId=<parentUuid>)`.
+- Computed / discovered placement: one `run_script(apply)` loop of `actionNode({ action: 'add', className, … })` then `setProperties` / save; return `{ created, saved, counts }` only.
+- Already-known fixed list: `batch_execute` with N `action_node.add` ops (or `foreach`).
 
-Confirm `className` with `query_editor(getRegisteredClasses, filter=…)` when unsure. Prefer v14 names (`ENGINE.MeshNode`, `ENGINE.ModelMeshNode`, `ENGINE.DirectionalLightNode`, `GAME.MyNode`). Legacy `*Component` aliases may still resolve, but new edits should use `*Node`.
+Confirm `className` with `query_editor(getRegisteredClasses, filter=…)` when unsure. Prefer `*Node` names (`ENGINE.MeshNode`, `ENGINE.ModelMeshNode`, `ENGINE.DirectionalLightNode`, `GAME.MyNode`). Legacy `*Component` aliases may still resolve, but new edits should use `*Node`.
 
 ```js
 const state = await genesys.queryEditor({ operation: 'getState' });
@@ -142,17 +142,17 @@ Richer placement (transforms, reparent, bulk models) that is not covered by `act
 
 ## Assemble nodes then merge to Model GLB
 
-Use when you need a **static Model asset** (not a prefab) for runtime model URLs — e.g. a watchtower built from mesh nodes:
+Use when you need a static Model asset (not a prefab) for runtime model URLs — e.g. a watchtower built from mesh nodes:
 
 1. Create and parent nodes with `action_node(add, …)`.
-2. `action_asset(mergeMeshes, …)` — compact-hidden: call via `run_script` / `batch_execute` directly (do **not** `describe_tool` first for known hidden tools). Keeps originals and writes a multi-mesh `.glb`. Pass `mergeGeometry: true` to weld into a single mesh (default preserves hierarchy). Consult `genesysmcp://api/typescript` or [compact-hidden-tools.md](compact-hidden-tools.md) if you need required id fields.
+2. `action_asset(mergeMeshes, …)` — compact-hidden: call via `run_script` / `batch_execute` directly (do not `describe_tool` first for known hidden tools). Keeps originals and writes a multi-mesh `.glb`. Pass `mergeGeometry: true` to weld into a single mesh (default preserves hierarchy). Consult `genesysmcp://api/typescript` or [compact-hidden-tools.md](compact-hidden-tools.md) if you need required id fields.
 3. Optionally place the baked model later by adding a `ModelMeshNode` and setting its model property via `setProperties`.
 
 Prefer prefabs when the assembly must stay editable as a hierarchy.
 
 ## Engine demo models
 
-`query_asset(find)` does **not** index `@engine/...` (use `getDetails` only to check a known `@engine/...` path). Discover files only under `node_modules/@gnsx/genesys.js/assets/models/demo/...` (exact subtree — never recursive `node_modules` / `*tree*` searches), then place with `action_node.add` + `setProperties` (or a `run_script` loop):
+`query_asset(find)` does not index `@engine/...` (use `getDetails` only to check a known `@engine/...` path). Discover files only under `node_modules/@gnsx/genesys.js/assets/models/demo/...` (exact subtree — never recursive `node_modules` / `*tree*` searches), then place with `action_node.add` + `setProperties` (or a `run_script` loop):
 
 ```text
 query_editor(getState)
@@ -197,7 +197,7 @@ edit TypeScript (@GameClass / @ENGINE.GameClass)
 
 `action_editor` is a first-class compact tool — call directly; no `describe_tool` first.
 
-**Inline image (preferred in `auto` mode):**
+Inline image (preferred in `auto` mode):
 
 ```text
 action_editor({ action: "captureScreenshot", includeImage: true })
@@ -205,9 +205,9 @@ action_editor({ action: "captureScreenshot", includeImage: true })
 
 `includeImage` defaults to `true`. Response: JSON metadata + inline `image` block (renders in Cursor chat). Explicit `genesys_request_approval` is only for prompt-mode pre-approval/token reuse — not required in `auto`.
 
-**Metadata only:** `includeImage: false`, then Read tool on `screenshot.screenshotPath`. Never emit markdown image links to absolute local disk paths.
+Metadata only: `includeImage: false`, then Read tool on `screenshot.screenshotPath`. Never emit markdown image links to absolute local disk paths.
 
-**`run_script` / `batch_execute`:** metadata only — image bytes stripped. Use the direct call for inline images.
+`run_script` / `batch_execute`: metadata only — image bytes stripped. Use the direct call for inline images.
 
 Optional: `dryRun: true` to inspect the planned save path without writing.
 
@@ -223,6 +223,71 @@ Full class pattern: [webgpu-tsl-node-material-assets/SKILL.md](../../webgpu-tsl-
 
 ## Inspect / assets / diagnostics
 
-- **Scene slice:** `run_script(readOnly)` — filter `queryNode(find|getTree)` in-script; return a small summary only.
-- **Assets:** `query_asset(find)` → `getDetails` (project/packs; `@engine/...` via `getDetails` only).
-- **After TS edits:** `buildProject` → optional `getBusyState` after a long build → `query_diagnostics(getBuildErrors)` when authoritative. Unavailable diagnostics = unknown, not success.
+- Scene slice: `run_script(readOnly)` — filter `queryNode(find|getTree)` in-script; return a small summary only.
+- Assets: `query_asset(find)` → `getDetails` (project/packs; `@engine/...` via `getDetails` only).
+- After TS edits: `buildProject` → optional `getBusyState` after a long build → `query_diagnostics(getBuildErrors)` when authoritative. Unavailable diagnostics = unknown, not success.
+
+## Prefabs
+
+Decision table and gotchas: [genesys-prefabs](../../genesys-prefabs/SKILL.md). Compact-hidden: `genesys.actionPrefab` / `batch_execute` (`tool: "action_prefab"`). Inspect with `query_node` + `query_asset(find, assetType: "prefab")`.
+
+### Extract a branch
+
+```js
+const { componentId } = /* selected branch root, not a placed instance */;
+const created = await genesys.actionPrefab({ action: 'createFromNode', componentId });
+return { prefabPath: created.prefabPath, status: created.status };
+```
+
+### Place N instances then save the scene
+
+```js
+const prefabPath = '@project/assets/prefabs/Crate.prefab.json';
+const placedIds = [];
+for (let i = 0; i < 3; i += 1) {
+  const placed = await genesys.actionPrefab({
+    action: 'instantiate',
+    prefabPath,
+    transform: { position: { x: i * 2, y: 0, z: 0 } },
+  });
+  placedIds.push(...(placed.affectedComponentIds ?? []));
+}
+await genesys.actionScene({ action: 'save' });
+return { prefabPath, placedIds, counts: { placed: placedIds.length } };
+```
+
+### Edit source in isolation
+
+```js
+const prefabPath = '@project/assets/prefabs/Crate.prefab.json';
+await genesys.actionPrefab({ action: 'open', prefabPath });
+const { nodes } = await genesys.queryNode({ operation: 'getTree', limit: 200 });
+const root = nodes.find((n) => n.isWorldRoot);
+if (root) {
+  await genesys.actionNode({
+    action: 'setProperties',
+    componentId: root.id,
+    properties: { /* editable paths from getEditableProperties */ },
+  });
+}
+await genesys.actionPrefab({ action: 'save' });
+await genesys.actionPrefab({ action: 'close' });
+return { prefabPath, edited: Boolean(root) };
+```
+
+Do not call `action_scene.save` while `queryEditor(getState).documentType === 'prefab'`. After `open`/`close`, discard previous `componentId`s.
+
+### Apply vs resync vs unlink
+
+Need a **placed instance root** (`isPrefabInstance`), not Prefab Editor:
+
+```js
+const componentId = 'placed-root-uuid';
+await genesys.actionPrefab({ action: 'apply', componentId, dryRun: true });
+// apply — write instance edits into the .prefab.json asset
+// resync — discard instance overrides (keeps uuid / world transform / display name / editableChildren)
+// unlink — bake into ordinary nodes (nested instances kept)
+return { componentId };
+```
+
+`createFromNode` / `apply` / `resync` / `unlink` are not undoable. Engine `@engine/...` prefabs: place is OK; apply and unlink are blocked.

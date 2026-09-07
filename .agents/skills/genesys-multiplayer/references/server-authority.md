@@ -72,8 +72,8 @@ For code outside a node (e.g., in a standalone utility function), use `NetRuntim
 
 - Writing to a replicated property from a client has no effect on the server or other clients. Always modify replicated state on the server.
 - Spawning nodes from a client does not create them on the server. Spawn networked nodes on the server (directly, or via `MultiplayerSpawner` for dynamic, non-scene-placed roots) via a `@ServerRPC`.
-- Destroying networked nodes must also happen on the server. A client can request destruction via a `@ServerRPC`; the server calls `node.removeFromParent()` / `MultiplayerSpawner.despawn()`.
+- Destroying networked nodes must also happen on the server. A client can request destruction via a `@ServerRPC`; the server calls `node.destroy()` / `MultiplayerSpawner.despawn()`.
 
-> **Deprecated `Actor` compatibility:** `Actor.netLocalRole` / `Actor.netRemoteRole` and `Actor.hasAuthority()` (true-by-default when unreplicated) remain as compatibility shims on the deprecated `Actor` shell. New code should read roles through `getReplicationInfo()` on a `SceneNode`/`PrimitiveNode` root as shown above.
+> Deprecated `Actor` compatibility: `Actor.netLocalRole` / `Actor.netRemoteRole` and `Actor.hasAuthority()` (true-by-default when unreplicated) remain as compatibility shims on the deprecated `Actor` shell. New code should read roles through `getReplicationInfo()` on a `SceneNode`/`PrimitiveNode` root as shown above.
 
 Reference: See `NetRuntime.ts`, `SceneNode.ts`, and `ReplicationInfo.ts` in engine source.

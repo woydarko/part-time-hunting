@@ -4,7 +4,7 @@
 
 A placeable SceneNode (or PrimitiveNode / MeshNode subclass) is its own transform root. Child nodes attach under it; there is no nested `rootComponent`.
 
-- Custom classes that are always world roots: set `this.isRoot = true` in the **constructor**.
+- Custom classes that are always world roots: set `this.isRoot = true` in the constructor.
 - One-off built-ins: `.create({ isRoot: true, ... })`.
 - Do not teach `super.initialize({ ...options, isRoot: true })` as the preferred custom-root pattern.
 
@@ -35,7 +35,7 @@ Nodes follow a lifecycle managed by the World:
 1. Creation — `MyNode.create(options)` factory method instantiates and initializes.
 2. World Entry — `world.add(node)` triggers `beginPlay()`. Override `beginPlay()`, call super, and run custom logic only when it returns true.
 3. Ticking — `tickPrePhysics()` → [physics simulation] → `tickPostPhysics()` every frame.
-4. World Exit — `node.destroy()` or remove from world triggers `endPlay()`. Override `endPlay()`, call super, and run custom logic only when it returns true.
+4. World Exit — `node.destroy()` triggers `endPlay()`. `removeFromParent()` / `world.remove()` only detach the graph. Override `endPlay()`, call super, and run custom logic only when it returns true.
 
 ## Identification and tags
 
@@ -65,6 +65,8 @@ world.add(enemy3);
 const boss = spawn('prefabs/enemies/boss', { position: new THREE.Vector3(20, 0, 0) });
 world.add(boss);
 ```
+
+Editor placement of the same asset uses compact-hidden `action_prefab.instantiate` (see `genesys-prefabs`). Runtime `spawn` / `instantiatePrefabAsync` does not go through MCP.
 
 ### Construction sequences
 

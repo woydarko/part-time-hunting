@@ -1,6 +1,6 @@
 # Node Replication
 
-Replication is the mechanism by which the server keeps clients up to date. A **replicated entity** is an `isRoot && replicated` `SceneNode` plus its replicated descendants, stopping at nested roots (those are their own entities). The engine auto-creates {@link ReplicationInfo} on the entity root and transmits property updates for every member every tick.
+Replication is the mechanism by which the server keeps clients up to date. A replicated entity is an `isRoot && replicated` `SceneNode` plus its replicated descendants, stopping at nested roots (those are their own entities). The engine auto-creates `ReplicationInfo` on the entity root and periodically transmits property updates for every member (see Replication Send Rate below — not every game tick).
 
 ## Enabling Replication
 
@@ -21,7 +21,7 @@ Call `this.ensureReplicationInfo()` when you need the info object before play (f
 
 When the server adds a replicated entity root to the world, the engine assigns a global `NetId` to its `ReplicationInfo` and spawns a copy on all relevant clients. When the server destroys the root, the copies are removed. The info also carries `netLocalRole` / `netRemoteRole` — Authority on the server, `SimulatedProxy` on clients by default (`AutonomousProxy` for the owning client's controller/pawn — see [player-ownership](player-ownership.md)).
 
-> **Deprecated `Actor` compatibility:** `ENGINE.Actor` (a deprecated `PrimitiveNode` shell) also auto-creates `ReplicationInfo` from `replicated = true`. Prefer a semantic `SceneNode`/`PrimitiveNode` root instead of `Actor`.
+> Deprecated `Actor` compatibility: `ENGINE.Actor` (a deprecated `PrimitiveNode` shell) also auto-creates `ReplicationInfo` from `replicated = true`. Prefer a semantic `SceneNode`/`PrimitiveNode` root instead of `Actor`.
 
 ## Replicating Properties
 
@@ -44,14 +44,18 @@ export class EnemyNode extends ENGINE.PrimitiveNode {
 }
 ```
 
-The server sends the current value of each replicated property to relevant clients at the replication send rate (default **30 Hz**, configurable via `netWorld.setReplicationSendRate(hz)`). Clients apply the values as they arrive.
+The server sends the current value of each replicated property to relevant clients at the replication send rate (default 30 Hz, configurable via `netWorld.setReplicationSendRate(hz)`). Clients apply the values as they arrive.
 
 Rules:
 - Only the authority (server) should write to replicated properties. Client writes have no effect on the server or other clients.
 - A property only participates in replication when its node is inside a replicated entity's member map (the entity root, or a `replicated` descendant under it that isn't itself a nested entity root). A `replicated` node with no surrounding entity root replicates nothing — the flag is a no-op.
 - Replicated properties are also persisted when the property metadata instructs it. Add `transient: true` if the property should travel over the network but not be saved to a scene file.
-- Properties are transmitted in a compact binary format. See **Net Type and Quantization** below for how to control wire encoding.
+- Properties are transmitted in a compact binary format. See Net Type and Quantization below for how to control wire encoding.
 - A replicated property that holds a reference to another node is only reconciled on the client once both nodes have replicated. If the referenced node is not itself replicated (inside a group), the reference will never resolve on the client.
+
+## Reparenting
+
+Reparent the **entity root** only (`isRoot && replicated`). Moving a replicated non-root member at runtime is unsupported. The server replicates the root's parent; if that parent is not on the client yet, the entity stays under its previous parent until the parent exists, then snaps over. Do not reparent unreplicated spawn trees expecting clients to follow — those stay where `MultiplayerSpawner` attached them.
 
 ## Net Type and Quantization
 
@@ -68,7 +72,7 @@ By default the engine auto-infers binary encoding from the TypeScript type. For 
 | `THREE.Vector3` | 3D position / direction | `'vector3'` with quantization |
 | `THREE.Euler` | 3-axis rotation | `'euler'` with quantization |
 | `THREE.Quaternion` | Unit rotation | `'quaternion'` with `drop-w` |
-| Node reference | Pointer to another `SceneNode` | `'nodeRef'` (auto-inferred for `componentReference`); add `nullable: true` if it can be null |
+| Node reference | Pointer to another `SceneNode` | `'nodeRef'` (auto-inferred for `nodeReference`, or the deprecated `componentReference` alias); add `nullable: true` if it can be null |
 | String union / enum | Enumerated string values | auto-inferred as `'enum'` |
 
 ```typescript
@@ -125,11 +129,11 @@ public speed: number = 0;
 
 ### `replicateTo` — Per-Property Client Filter
 
-By default a replicated property is sent to **all** clients. Use `replicateTo` to restrict delivery:
+By default a replicated property is sent to all clients. Use `replicateTo` to restrict delivery:
 
 - `'all'` — sent to every connected client (default).
 - `'owner'` — sent only to the group's owning client (`netOwningClientId`) — use for input acknowledgements, private state.
-- `'non-owner'` — sent to all clients **except** the owning client (use when the owning client computes the value locally and doesn't need a redundant copy from the server).
+- `'non-owner'` — sent to all clients except the owning client (use when the owning client computes the value locally and doesn't need a redundant copy from the server).
 
 ```typescript
 // Owning client predicts velocity locally — only non-owners need the server copy
@@ -156,25 +160,25 @@ public blendWeight: number = 0;
 
 ## Transform Replication
 
-There is no generic `replicateTransform` flag for `SceneNode`/`PrimitiveNode` roots (that flag is an `Actor`-only compatibility property — see the deprecated footnote below). For a plain `Pawn`, transform replication is **not** automatic: creating a `ReplicationInfo` does not by itself move the node on remote clients.
+There is no generic `replicateTransform` flag for `SceneNode`/`PrimitiveNode` roots (that flag is an `Actor`-only compatibility property — see the deprecated footnote below). For a plain `Pawn`, transform replication is not automatic: creating a `ReplicationInfo` does not by itself move the node on remote clients.
 
 - For player/AI-controlled movement, use a `MovementPawn` subclass (e.g. `CharacterPawn`) whose movement node consumes `NetMovementPredictor` — client-side prediction and server reconciliation are built in.
 - For simple non-player roots that move (projectiles, pickups, moving platforms), implement an explicit replicated `NetTransform`-style property (position/rotation as replicated properties with quantization, see above) with authority-side writes and an `onRep*` callback that applies the value on remote clients. Merely adding replicated position/rotation properties is sufficient — you do not need `replicateTransform`.
 
-> **Deprecated `Actor` compatibility:** `Actor.replicateTransform = true` (set alongside `replicated = true` in the constructor) enables snap-to-position transform sync automatically. This is an Actor-only compat property with no `SceneNode`/`PrimitiveNode` equivalent — new code should use `MovementPawn`/`CharacterPawn` or explicit replicated transform properties instead.
+> Deprecated `Actor` compatibility: `Actor.replicateTransform = true` (set alongside `replicated = true` in the constructor) enables snap-to-position transform sync automatically. This is an Actor-only compat property with no `SceneNode`/`PrimitiveNode` equivalent — new code should use `MovementPawn`/`CharacterPawn` or explicit replicated transform properties instead.
 
 ## Relevance and Ownership Scoping
 
 By default, once a replicated root's `ReplicationInfo` channel is established with a client, that client keeps receiving its updates for as long as both are connected — there is no per-tick distance/relevance culling hook on `SceneNode`/`PrimitiveNode` roots. To scope *who* sees what:
 
-- Use `replicateTo: 'owner'` / `'non-owner'` (above) to control which clients receive a given **property**, not the whole entity.
-- Use `MultiplayerSpawner.spawnOwnerOnly(clientId, ...)` (see **Scene-Placed vs Dynamically Spawned Roots** below) to spawn a whole subtree that only materializes for one client — the right tool for a player's private inventory, hand-UI, or other per-player-only entity.
+- Use `replicateTo: 'owner'` / `'non-owner'` (above) to control which clients receive a given property, not the whole entity.
+- Use `MultiplayerSpawner.spawnOwnerOnly(clientId, ...)` (see Scene-Placed vs Dynamically Spawned Roots below) to spawn a whole subtree that only materializes for one client — the right tool for a player's private inventory, hand-UI, or other per-player-only entity.
 
-> **Deprecated `Actor` compatibility:** `Actor.isNetRelevantFor(clientId)` (override for distance-based culling), `Actor.onlyRelevantToOwner = true` (whole-actor owner-only visibility), and `Actor.setNetRelevant(false)` are Actor-only compatibility hooks with no `ReplicationInfo`/`SceneNode` equivalent today. Prefer `replicateTo` filters and `MultiplayerSpawner.spawnOwnerOnly` for new node-based code.
+> Deprecated `Actor` compatibility: `Actor.isNetRelevantFor(clientId)` (override for distance-based culling), `Actor.onlyRelevantToOwner = true` (whole-actor owner-only visibility), and `Actor.setNetRelevant(false)` have no `ReplicationInfo`/`SceneNode` equivalent. Prefer `replicateTo` filters and `MultiplayerSpawner.spawnOwnerOnly` for new node-based code.
 
 ## Replication Send Rate
 
-The server batches replication into packets sent at a fixed **global** rate, independent of the game loop tick rate. The default is **30 Hz** and applies to all replicated roots uniformly. Change it via `setReplicationSendRate` on the `ServerAuthorityNetWorld`, typically from server-only setup code (e.g. inside `GameMode.initialize` or the server entry point), not inside node code:
+The server batches replication into packets sent at a fixed global rate, independent of the game loop tick rate. The default is 30 Hz and applies to all replicated roots uniformly. Change it via `setReplicationSendRate` on the `ServerAuthorityNetWorld`, typically from server-only setup code (e.g. inside `GameMode.initialize` or the server entry point), not inside node code:
 
 ```typescript
 import * as ENGINE from '@gnsx/genesys.js';
@@ -195,24 +199,39 @@ A lower rate reduces outbound bandwidth at the cost of higher client-visible lat
 
 How a replicated root arrives in the world determines how the server binds its channel to a client.
 
-**Scene-placed roots** are nodes loaded from a scene file — both the server and every client load the same scene, so the node already exists at the same `NodePath` on both sides before any networking happens. The server sends a spawn entry containing that stable `NodePath` (`rootPath`) plus the initial replicated state; the client resolves the existing node at that path and applies the state to it. No construction data is transmitted.
+Scene-placed roots are nodes loaded from a scene file — both the server and every client load the same scene, so the node already exists at the same `NodePath` on both sides before any networking happens. The server sends a spawn entry containing that stable `NodePath` (`rootPath`) plus the initial replicated state; the client resolves the existing node at that path and applies the state to it. No construction data is transmitted.
 
-**Dynamically spawned roots** (pickups, projectiles, spawned enemies, per-player private entities) do **not** exist ahead of time on the client, so a bare `world.add(node)` on the server has nothing for the client to bind to. Use a `MultiplayerSpawner` node instead:
+Dynamically spawned roots (pickups, projectiles, spawned enemies, per-player private entities) do not exist ahead of time on the client, so a bare `world.add(node)` on the server has nothing for the client to bind to. Use a `MultiplayerSpawner` node instead:
 
 ```typescript
+@ENGINE.GameClass()
+class PickupSpawner extends ENGINE.MultiplayerSpawner {
+  @ENGINE.SpawnMethod()
+  async spawnPickup(position: THREE.Vector3): Promise<PickupRoot | null> {
+    const pickup = await ENGINE.instantiatePrefabAsync('@project/assets/prefabs/pickup.prefab.json');
+    pickup?.setWorldPosition(position);
+    return pickup;
+  }
+
+  @ENGINE.SpawnMethod({ audience: 'owner' })
+  async spawnPrivateItem(ownerClientId: ENGINE.ClientId): Promise<SceneNode | null> {
+    return await ENGINE.instantiatePrefabAsync('@project/assets/prefabs/private-item.prefab.json');
+  }
+}
+
 // Scene- or code-placed once, as a sibling of where spawns should appear:
-const spawner = ENGINE.MultiplayerSpawner.create({ defaultPrefabPath: '@project/assets/prefabs/pickup.prefab.json' });
+const spawner = PickupSpawner.create();
 world.add(spawner);
 
 // Server: spawn a pickup visible to every client
-await spawner.spawn();
+await spawner.spawnPickup(position);
 
-// Server: spawn a private entity visible only to one player (e.g. a hand-held item)
-await spawner.spawnOwnerOnly(ownerClientId);
+// Server: spawn a private entity visible only to one player
+await spawner.spawnPrivateItem(ownerClientId);
 ```
 
 `MultiplayerSpawner` keeps a journal of its spawns (recipe + args) keyed by its own stable `NodePath`. The server notifies clients (or the owner-only audience) of new/removed journal entries; each client materializes the same recipe locally via `applyRemoteSpawn`, so both sides end up with an equivalent tree that the generic `ReplicationInfo` channel can then bind to and delta-update. Late-joining clients replay the spawner's current journal instead of missing spawns that happened before they connected.
 
-`PlayerController`, `Pawn`, `PlayerInfo`, and `GameSessionInfo` are spawned and bound through the engine's built-in join/session flow (`GameMode.onPlayerJoined` → `handleNewPlayer` → `restartPlayer`, and `NetWorld`'s handshake) — game code should not try to hand-spawn these framework types with a `MultiplayerSpawner` of its own; call the `GameMode` hooks documented in [game-mode](game-mode.md) instead.
+`GameSessionInfo` is spawned once at world begin play (`GameMode.ensureGameSessionInfo`). `PlayerController`, `Pawn`, and `PlayerInfo` are spawned and bound through the engine's built-in join flow (`GameMode.onPlayerJoined` after the client loads the level → `handleNewPlayer` → `restartPlayer`) — game code should not try to hand-spawn these framework types with a `MultiplayerSpawner` of its own; call the `GameMode` hooks documented in [game-mode](game-mode.md) instead.
 
-Reference: See `ReplicationInfo.ts`, `MultiplayerSpawner.ts`, and `ServerAuthorityNetWorld.ts` in engine source (`packages/engine/src/multiplayer/`, `packages/engine/src/nodes/`).
+Reference: See `ReplicationInfo.ts`, `MultiplayerSpawner.ts`, and `ServerAuthorityNetWorld.ts` in engine source (`.engine/src/multiplayer/`, `.engine/src/nodes/multiplayer/`).

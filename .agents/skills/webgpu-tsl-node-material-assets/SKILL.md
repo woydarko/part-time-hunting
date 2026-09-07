@@ -11,7 +11,7 @@ Use this skill when a game project needs custom WebGPU TSL material shaders that
 - expose authored fields in the property editor, and
 - round-trip safely through scene/material serialization.
 
-A **TypeScript material class** and a saved **`.material.json` asset** are different things. Define the reusable class in code, build/register it, then create a project material asset from that class in the editor (MCP or manual).
+A TypeScript material class and a saved `.material.json` asset are different things. Define the reusable class in code, build/register it, then create a project material asset from that class in the editor (MCP or manual).
 
 ## Use This Flow
 
@@ -24,7 +24,7 @@ Tag work by owner:
 | `[MCP]` | Create `.material.json`, assign `material`, save scene |
 | `[Manual]` | MCP unavailable — use Asset Browser → New → Material |
 
-**Never edit `auto-imports.ts` manually.** Classes with `@ENGINE.GameClass()` are discovered by the build pipeline.
+Never edit `auto-imports.ts` manually. Classes with `@ENGINE.GameClass()` are discovered by the build pipeline.
 
 Before the first Genesys MCP call in a task, read [genesys-mcp-orchestrator/SKILL.md](../genesys-mcp-orchestrator/SKILL.md) and follow its availability gate.
 
@@ -48,18 +48,18 @@ Before the first Genesys MCP call in a task, read [genesys-mcp-orchestrator/SKIL
 
 ## Best Practices (Mandatory)
 
-- **Texture ownership:** Cache owned textures on the instance; reuse when URL is unchanged.
-- **Disposal:** Dispose owned textures when replaced or in `dispose()`; never leak rebuild-allocated textures.
-- **Failure containment:** On `rebuild()` failure, assign a safe fallback graph and set `needsUpdate = true`.
-- **Property changes:** After runtime/editor mutations to authored fields, call `rebuild()` and set `needsUpdate = true`.
-- **Loop safety:** Clamp/sanitize loop-driving values before feeding TSL logic.
-- **TSL naming:** Use prefixed `toVar('prefixName')` names; avoid shadowing authored property names.
+- Texture ownership: Cache owned textures on the instance; reuse when URL is unchanged.
+- Disposal: Dispose owned textures when replaced or in `dispose()`; never leak rebuild-allocated textures.
+- Failure containment: On `rebuild()` failure, assign a safe fallback graph and set `needsUpdate = true`.
+- Property changes: After runtime/editor mutations to authored fields, call `rebuild()` and set `needsUpdate = true`.
+- Loop safety: Clamp/sanitize loop-driving values before feeding TSL logic.
+- TSL naming: Use prefixed `toVar('prefixName')` names; avoid shadowing authored property names.
 
 ## MCP Workflow (Connected Editor)
 
 Do not hand-write `.material.json`. Do not batch `action_build` with scene/asset mutations in one `run_script`.
 
-**Step 1 — build (direct tool, separate from scene edits):**
+Step 1 — build (direct tool, separate from scene edits):
 
 ```text
 [Code] edit material class in src/
@@ -68,7 +68,7 @@ Do not hand-write `.material.json`. Do not batch `action_build` with scene/asset
 → query_editor(operation="getNodeMaterialClasses", filter="YourMaterialClass")
 ```
 
-**Step 2 — create asset + assign (one apply script):**
+Step 2 — create asset + assign (one apply script):
 
 ```text
 run_script(mode="apply", groupUndo=true, approval={ operations: ["action_asset.createMaterial", "action_node.setProperties", "action_scene.save"] }, code=...)
@@ -80,16 +80,16 @@ run_script(mode="apply", groupUndo=true, approval={ operations: ["action_asset.c
 → query_asset(operation="find", assetType="material", query="M_YourMaterial")
 ```
 
-**Efficiency rules:**
-- Call `action_build` as a **direct compact MCP tool** first; do not combine it with `createMaterial` / `setProperties` / `save` in the same `run_script`.
+Efficiency rules:
+- Call `action_build` as a direct compact MCP tool first; do not combine it with `createMaterial` / `setProperties` / `save` in the same `run_script`.
 - If build must run inside `run_script`, include `action_build.buildProject` in `approval.operations`.
 - `createMaterial` is a hidden compact `action_asset` operation — dispatch via `genesys.actionAsset(...)` inside `run_script`.
-- Use `query_editor(getNodeMaterialClasses)` to verify node material registration — **not** `getRegisteredClasses` (that lists `ENGINE.*` / `GAME.*` placeable types, not node-material asset classes).
+- Use `query_editor(getNodeMaterialClasses)` to verify node material registration — not `getRegisteredClasses` (that lists `ENGINE.*` / `GAME.*` placeable types, not node-material asset classes).
 - Assign the material on a `MeshNode` via the editable `material` property (not `materialPath`).
 - Do not append `select` / `frameSelection` unless the user asks.
 - Do not grep or hand-edit `*.genesys-scene` when MCP reports `editorReady: true`.
 
-**`createMaterial` arguments:**
+`createMaterial` arguments:
 
 | Field | Required | Notes |
 | --- | --- | --- |
@@ -100,10 +100,10 @@ run_script(mode="apply", groupUndo=true, approval={ operations: ["action_asset.c
 ## Manual Editor Fallback (MCP Off)
 
 1. `[Verify]` Run `pnpm lint` and `pnpm build` so the class registers.
-2. Asset Browser → **New** → **Material**.
+2. Asset Browser → New → Material.
 3. Pick the material's `nodeMaterialDisplayName` under its `nodeMaterialGroup`.
-4. Enter a name, choose `assets/materials/`, click **Create Material**.
-5. Assign `@project/assets/materials/<Name>.material.json` on the target `MeshNode` **material** property.
+4. Enter a name, choose `assets/materials/`, click Create Material.
+5. Assign `@project/assets/materials/<Name>.material.json` on the target `MeshNode` material property.
 6. Save the scene; reopen and confirm authored fields round-trip.
 
 ## Reference

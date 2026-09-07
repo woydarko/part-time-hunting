@@ -4,7 +4,7 @@
 
 `BehaviorTreeNode` sits on an NPC placeable and runs a behavior tree each `tickInterval` seconds (prefer `tickInterval`; `updateInterval` is a deprecated alias only). Before each run it calls `blackboard.updateGameState()` so nodes can read fresh owner and player data.
 
-The tree is a hierarchy of **nodes**. **Composite** nodes (`Sequence`, `Selector`) have children and delegate execution. **Leaf** nodes are **actions** — they perform gameplay (pathfinding, combat, waiting). **Conditions** gate whether a node may run; they attach to a node via `conditions: [...]` and are checked before that node's logic.
+The tree is a hierarchy of nodes. Composite nodes (`Sequence`, `Selector`) have children and delegate execution. Leaf nodes are actions — they perform gameplay (pathfinding, combat, waiting). Conditions gate whether a node may run; they attach to a node via `conditions: [...]` and are checked before that node's logic.
 
 When the root returns `Success` or `Failure`, the node resets the tree and will run it again on the next tick. Design long-running NPC behavior as a root `Selector` whose branches cover fight, flee, patrol, idle, etc.
 
@@ -12,8 +12,8 @@ When the root returns `Success` or `Failure`, the node resets the tree and will 
 
 | Node | Behavior |
 | --- | --- |
-| **Sequence** | Children left to right. Fails on first child failure. Succeeds when every child succeeds. Stays `Running` while a child runs. |
-| **Selector** | Children top to bottom by priority. Succeeds on first child success. Fails when every child fails. Stays `Running` while a child runs. |
+| Sequence | Children left to right. Fails on first child failure. Succeeds when every child succeeds. Stays `Running` while a child runs. |
+| Selector | Children top to bottom by priority. Succeeds on first child success. Fails when every child fails. Stays `Running` while a child runs. |
 
 Every node execution yields `Success`, `Failure`, or `Running` (see `BehaviorNode.ts`).
 
@@ -23,15 +23,15 @@ The blackboard is a per-node key/value store. Actions write outputs (e.g. next w
 
 ## Authoring
 
-- **Programmatic** — build `SequenceNode` / `SelectorNode` trees in code, pass as `rootNode` on the node.
-- **JSON** — asset referenced by `behaviorTreePath`; types and options map to entries in `BehaviorTreeLoader` registries.
-- **Custom nodes** — built-ins are a starting point; extend `BehaviorAction` or `ConditionEvaluator` for game-specific behavior, then register types with `BehaviorTreeLoader` if you use JSON. See `BehaviorAction.ts`, `ConditionEvaluator.ts`, and `BehaviorTreeLoader.ts`.
+- Programmatic — build `SequenceNode` / `SelectorNode` trees in code, pass as `rootNode` on the node.
+- JSON — asset referenced by `behaviorTreePath`; types and options map to entries in `BehaviorTreeLoader` registries.
+- Custom nodes — built-ins are a starting point; extend `BehaviorAction` or `ConditionEvaluator` for game-specific behavior, then register types with `BehaviorTreeLoader` if you use JSON. See `BehaviorAction.ts`, `ConditionEvaluator.ts`, and `BehaviorTreeLoader.ts`.
 
 NPC pawns need movement and combat nodes that match the actions you use (e.g. `NpcMovementNode` for ground pathing, `AerialMovementNode` for flying). Node requirements are enforced in each action's source file.
 
 ## Where to find more in engine source
 
-Paths below are relative to `.engine/npc/behavior-tree/` (game projects) or `packages/engine/src/npc/behavior-tree/` (monorepo).
+Paths below are relative to `.engine/src/npc/behavior-tree/`.
 
 | Topic | File or folder |
 | --- | --- |

@@ -171,7 +171,7 @@ Procedure:
    - Rewrites `config.json` `version` if a bump or explicit version was
      requested.
    - Re-runs `check-pack-isolation --pack <name>` and aborts on failure.
-   - Writes `<out>/<name>.zip` containing the pack folder's **contents** at
+   - Writes `<out>/<name>.zip` containing the pack folder's contents at
      the archive root (no `<name>/` directory prefix inside the zip).
 
 4. If the isolation check fails, fix the reported violations and rerun.

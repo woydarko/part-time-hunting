@@ -2,7 +2,7 @@
 
 The Genesys engine provides a centralized input management system via the InputManager class.
 
-## Core Components
+## Core Classes
 
 InputManager — Centralized system for capturing and distributing keyboard, mouse, gamepad, and touch input. Created by the World.
 

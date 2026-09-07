@@ -1,0 +1,16 @@
+# pnpm 11 reads project settings here, not package.json#pnpm.
+# Disable the 1-day publish delay so freshly published @gnsx/* packages can install.
+minimumReleaseAge: 0
+virtualStoreType: global
+# GVS keeps nested deps out of the project tree. Hoist these so `tsc` (with
+# preserveSymlinks) can resolve types that re-export them.
+publicHoistPattern:
+  - '*eslint*'
+  - '*prettier*'
+  - 'meshoptimizer'
+  - 'node-stdlib-browser'
+allowBuilds:
+  esbuild: true
+# pnpm 11 defaults verifyDepsBeforeRun to install, which nested-installs on
+# `pnpm exec` / `pnpm build`. The SDK already runs `pnpm install` explicitly.
+verifyDepsBeforeRun: false

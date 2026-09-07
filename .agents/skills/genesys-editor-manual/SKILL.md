@@ -5,13 +5,13 @@ description: Explain how to perform Genesys editor tasks manually in the UI (men
 
 # Genesys Editor Manual
 
-Use when the user asks **where a control is**, **how to do X in the editor UI**, or **whether MCP can do it**.
+Use when the user asks where a control is, how to do X in the editor UI, or whether MCP can do it.
 
 For live mutations via tools, prefer [genesys-mcp-orchestrator](../genesys-mcp-orchestrator/SKILL.md) when MCP is Connected or Probe-capable.
 
 ## Load only what you need
 
-Do **not** read every reference up front. Open the smallest file that answers the question:
+Do not read every reference up front. Open the smallest file that answers the question:
 
 | Question about… | Read |
 | --- | --- |
@@ -33,13 +33,13 @@ Do **not** read every reference up front. Open the smallest file that answers th
 
 ## Critical semantics
 
-- **Editor hide (eye / H)** and **editor lock (L)** are **viewport/outliner only** — not runtime visibility/selectability.
-- Class registration: MCP `action_build(action="buildProject")` or Menu → **Build Project** — no separate `compile` MCP action.
-- Animation / VFX / Skeleton / Foundry (Scenario) / project open-create / catalog asset-pack browse-install / Getting Started / Environment Setup / Project Recovery are **UI only** unless listed in mcp-vs-ui.
-- Genesys MCP for external IDEs is configured **once per Sandbox Studio environment** (not per game project). See [app-setup-and-recovery.md](references/app-setup-and-recovery.md).
+- Editor hide (eye / H) and editor lock (L) are viewport/outliner only — not runtime visibility/selectability.
+- Class registration: MCP `action_build(action="buildProject")` or Menu → Build Project — no separate `compile` MCP action.
+- Animation / VFX / Skeleton / Foundry (Scenario) / project open-create / catalog asset-pack browse-install / Getting Started / Environment Setup / Project Recovery are UI only unless listed in mcp-vs-ui.
+- Genesys MCP for external IDEs is configured once per Sandbox Studio environment (not per game project). See [app-setup-and-recovery.md](references/app-setup-and-recovery.md).
 
 ## Maintenance
 
-Shipped under `.agents/skills/`; overwritten on SDK project update. When MCP ops or UI labels change, update `references/mcp-vs-ui.md` and the matching area file in the same change (genesys-mcp-developer checklist).
-
-Hotkey rows live in `packages/editor/src/lib/hotkeys/editorHotkeysCatalog.ts` (in-app Hot Keys dialog). Do **not** edit `references/hotkeys.md` by hand — regenerate with `pnpm --filter genesys.ai generate-hotkeys-manual`. Editor tests fail if that file drifts. In the Genesys monorepo, follow `editor-hotkeys-catalog`.
+Everything under `.agents/skills/` is replaced on SDK project update — do not
+edit these files by hand. `references/hotkeys.md` in particular mirrors the
+editor's in-app Hot Keys dialog and is generated.

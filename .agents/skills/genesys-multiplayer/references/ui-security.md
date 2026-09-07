@@ -1,21 +1,21 @@
 # Multiplayer UI security
 
-The engine replicates strings as **opaque data**. It does **not** sanitize
+The engine replicates strings as opaque data. It does not sanitize
 `playerName`, `team`, chat text, or other `@property({ replicate: true })`
 fields for HTML safety.
 
 | Source | Trust for HTML |
 |--------|----------------|
-| `joinParams` from clients | **Untrusted** |
-| Other clients' replicated string properties | **Untrusted** |
-| Server-generated display names | Treat as **display text**, not HTML |
+| `joinParams` from clients | Untrusted |
+| Other clients' replicated string properties | Untrusted |
+| Server-generated display names | Treat as display text, not HTML |
 | UI kit `label` / mustache slots | Escaped as text |
-| `*Html` / `setHTML` | **Trusted markup only** (you author it) |
+| `*Html` / `setHTML` | Trusted markup only (you author it) |
 
 ## Fields to watch
 
 On `PlayerInfo` and similar: `playerName`, `team`, custom replicated strings.
-Numeric scores are fine as numbers — coerce into **text** nodes, not HTML.
+Numeric scores are fine as numbers — coerce into text nodes, not HTML.
 
 ## Safe rendering
 
@@ -41,8 +41,8 @@ If you must build HTML strings, escape with `ENGINE.escapeHtml(...)` — prefer
 ## Server validation (recommended, not sufficient alone)
 
 If `GameMode` accepts a display name from `joinParams`, validate length and
-character set **on the server** before assigning `PlayerInfo.playerName`.
-Validation reduces abuse; it does **not** replace safe client rendering.
+character set on the server before assigning `PlayerInfo.playerName`.
+Validation reduces abuse; it does not replace safe client rendering.
 
 ## Checklist
 
@@ -52,6 +52,6 @@ Validation reduces abuse; it does **not** replace safe client rendering.
 4. Validate client-supplied names in `GameMode` when using `joinParams`.
 5. Prefer the copy-paste pattern in [player-list-safe](./player-list-safe.md).
 
-For general HUD rules (non-network), see the **Safe UI** section in the
+For general HUD rules (non-network), see the Safe UI section in the
 `genesys-ui-kit` skill and
 [safe-ui.md](../../genesys-ui-kit/references/safe-ui.md).

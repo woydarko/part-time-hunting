@@ -1,11 +1,10 @@
-<!-- Generated from packages/editor/src/lib/hotkeys/editorHotkeysCatalog.ts. Do not edit by hand. -->
-<!-- Regenerate: pnpm --filter genesys.ai generate-hotkeys-manual -->
+<!-- Generated from the editor's hotkey catalog. Do not edit by hand. -->
 
 # Hotkeys
 
-Bindings from the editor (`useEditorHotkeys`, viewport camera, Outliner tree, Asset Browser).
+Keyboard shortcuts for the editor, viewport, Outliner, and Asset Browser.
 
-`Ctrl/Cmd` means Control on Windows/Linux and Command on macOS.
+`Ctrl/Cmd` means Control on Windows/Linux and Command on macOS. `Alt/Option` means Alt on Windows/Linux and Option on macOS. `Ctrl` in a row is the Control key on every platform (not Command).
 
 ## File and app
 
@@ -28,7 +27,7 @@ Bindings from the editor (`useEditorHotkeys`, viewport camera, Outliner tree, As
 | --- | --- |
 | F5 | Play Game Default Scene (ignored while already playing) |
 | F6 | Play Current Scene (ignored while already playing) |
-| Esc | Exit Play Mode if the game did not consume Escape and pointer lock is off. Title-bar **Exit Play Mode** also works. |
+| Esc / F8 | Exit Play Mode. Esc: if the game did not consume Escape and pointer lock is off. F8 always exits (the game does not receive F8). Title-bar **Exit Play Mode** also works. |
 
 ## Transform and camera
 
@@ -36,27 +35,39 @@ Bindings from the editor (`useEditorHotkeys`, viewport camera, Outliner tree, As
 | --- | --- |
 | Q / W / E / R | Select / Move / Rotate / Scale |
 | X | Toggle World / Local (Scale always uses local) |
-| F | Focus / frame selection |
+| F | Focus / frame selection. Prefab Editor document root (or nothing selected): Reset Camera |
 | End | Drop selection to surface |
-| Right-drag | Fly camera (perspective). While flying: **WASD** move, **Q/E** up/down, **Shift** boost, **wheel** fly speed |
-| Shift or Alt + left-drag | Orbit / rotate around the focus |
-| Alt + right-drag | Dolly (perspective) or zoom (orthographic) |
+| Right-drag | Fly camera. In an orthographic view, right-drag switches to Perspective first. While flying: **WASD** move, **Q/E** up/down, **Shift** boost, **wheel** fly speed |
+| Shift+left-drag or `Alt/Option+left-drag` | Orbit / rotate around the focus. Orbiting an orthographic view switches to Perspective |
+| `Alt/Option+right-drag` | Dolly (perspective) or zoom (orthographic) |
 | Middle-drag | Pan |
 
 Q/E while **not** flying are Select / Rotate. They only move the camera while RMB fly is active.
+
+## View settings
+
+| Hotkey | Action |
+| --- | --- |
+| G | Toggle Grid (View menu Show Grid) |
+| O | Reset Camera to the origin (View menu Reset Camera). Distinct from F, which frames the selection |
+| C | Toggle Show Collisions in Editor (no-op when physics debug is unavailable) |
+| Y | Toggle Show Object Icons |
+
+Ignored in Play Mode and while typing in a field. Unmodified keys only (`Ctrl/Cmd+C` copy and `Ctrl/Cmd+Y` redo are unchanged).
 
 ## Selection and nodes
 
 | Hotkey | Action |
 | --- | --- |
 | `Ctrl/Cmd+C` | Copy selected nodes (skipped if a text range is highlighted) |
-| `Ctrl/Cmd+V` | Paste nodes (works with viewport focus; same as Scene-root paste) |
+| `Ctrl/Cmd+V` | Paste nodes as children of the selection (works with viewport focus; empty selection / Scene root pastes at the world root) |
+| `Ctrl/Cmd+Shift+V` | Paste as Sibling — insert after the selected node under the same parent (empty selection / Scene root pastes at the world root) |
 | `Ctrl/Cmd+D` | Duplicate selection |
 | Del / Backspace | Remove selection (Backspace matches Delete on macOS) |
 | H | Toggle editor visibility (editor-only, not runtime) |
 | L | Toggle editor lock (editor-only) |
 | `/` | Edit selected prefab instance |
-| Esc | Close Quick Action Overlay (overlay handles nested popups first); else Back from asset / Scene Settings; else clear selection; else close Prefab Editor when a return scene exists. Does **not** switch to the Select tool |
+| Esc | Close Quick Action Overlay (overlay handles nested popups first); else close Prefab Editor when a return scene exists; else Back from asset / Scene Settings; else clear selection. Does **not** switch to the Select tool |
 
 ## Trees (Outliner, Asset Browser folders, Model Viewer GLTF)
 
@@ -82,5 +93,5 @@ There is no chevron tooltip. Shift+F does **not** scroll the Outliner.
 | --- | --- | --- |
 | Shift+RMB / Shift+LMB | Inspector property label | Copy Value / Paste Value (in-memory clipboard) |
 | Ctrl+scroll | Asset Browser grid | Change thumbnail size |
-| Shift (hold) | Instanced-geometry brush | Temporarily eraser |
+| Shift+hold | Instanced-geometry brush | Temporarily eraser |
 | Insert / Del / Esc | Spline point edit | Insert at hover / delete selected point / cancel drag or deselect |

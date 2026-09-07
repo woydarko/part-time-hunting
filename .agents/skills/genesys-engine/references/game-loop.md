@@ -9,12 +9,10 @@ BaseGameLoop — Main entry point that initializes the engine and drives the fra
 
 Reference: See GameLoop.ts in engine source.
 
-World lifecycle (formerly GameContext) — Owned by BaseGameLoop:
+World lifecycle — Owned by BaseGameLoop:
 - `startWorldLifecycle()` creates the World and initializes physics/navigation on the game loop.
 - Persists across world/level transitions via GameLoop state.
 - Coordinates world and GameMode lifecycle and scene loading.
-
-There is no separate `GameContext` class.
 
 ## Initialization flow
 

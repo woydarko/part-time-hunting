@@ -131,7 +131,7 @@ ENGINE.registerSpecialization({
 
 ## 3) Build, register, and create the material asset
 
-**With MCP (preferred when connected):**
+With MCP (preferred when connected):
 
 ```text
 action_build(action="buildProject")
@@ -144,7 +144,7 @@ action_build(action="buildProject")
 
 Do not batch `action_build` with create/assign in one script. Use `getNodeMaterialClasses`, not `getRegisteredClasses`, to verify node material registration.
 
-**Manual:** Asset Browser → New → Material → select **Pulse Stripe (Game)** under **Game FX**.
+Manual: Asset Browser → New → Material → select Pulse Stripe (Game) under Game FX.
 
 Do not hand-author `.material.json`. The editor serialises materials with `ENGINE.createDumper`.
 

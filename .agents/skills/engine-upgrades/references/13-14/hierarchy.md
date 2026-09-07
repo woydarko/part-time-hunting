@@ -48,7 +48,7 @@ never treat `rootComponent` as a nested body when the getter returns `this`.
 
 | Old setup | Prefer |
 |---|---|
-| Only `rootComponent`, no `sceneComponents` | Promote that node to the world root — **no wrapper** around a single child |
+| Only `rootComponent`, no `sceneComponents` | Promote that node to the world root — no wrapper around a single child |
 | `rootComponent` + one or more `sceneComponents` | Compound placeable (`PrimitiveNode` / subclass) with `children` |
 | Behaviour / tags only | `SceneNode` |
 | Placeable + physics | `PrimitiveNode` |
@@ -77,11 +77,11 @@ ENGINE.MeshNode.create({
 });
 ```
 
-Keep physics on that same node. Do **not** introduce
+Keep physics on that same node. Do not introduce
 `PrimitiveNode.create({ children: [onlyChild] })` when the Actor had nothing
 else. Same rule for a lone `ModelMeshNode`, `SoundNode`, etc.
 
-For shells that already exist in **saved scenes** rather than in `create()` calls,
+For shells that already exist in saved scenes rather than in `create()` calls,
 `ENGINE.collapseSingleChildShells(world, shellClasses)` performs exactly this
 promote-don't-wrap cleanup across a loaded World:
 
@@ -97,11 +97,11 @@ re-save as real scene roots. It returns the promoted children in collapse order.
 
 Two matching rules decide what actually collapses:
 
-- `shellClasses` is matched by **exact constructor identity**, not `instanceof`. A
+- `shellClasses` is matched by exact constructor identity, not `instanceof`. A
   gameplay subclass such as `class EnemySpawnPointActor extends ENGINE.Actor` is
   deliberately left alone — passing `ENGINE.Actor` will not collapse it. To strip a
   subclass shell, pass that subclass itself.
-- Only **authored** children count. Transient `Object3D` children (editor icon
+- Only authored children count. Transient `Object3D` children (editor icon
   billboards and similar helpers) are ignored, so a shell carrying an editor gizmo
   still qualifies as single-child.
 
@@ -113,13 +113,13 @@ empty wrappers by hand.
 ### Compound placeable — flat children + physics lift
 
 Historically the nested `rootComponent` usually held `physicsOptions`. After
-migration the **placeable root** owns the rigid body; the former body typically
+migration the placeable root owns the rigid body; the former body typically
 only contributes its collider (same pattern as
 `PrimitiveNode.applyLegacyRootComponent` / `CharacterPawn`):
 
-1. Copy the old root’s physics onto the **new placeable** via `physicsOptions`,
+1. Copy the old root’s physics onto the new placeable via `physicsOptions`,
    with `contributeToParentCollider: false` (root owns the body).
-2. On the **former body** child, keep geometry/collision shape and set
+2. On the former body child, keep geometry/collision shape and set
    `contributeToParentCollider: true` (usually still `enabled: true`).
 3. Put world transform on the new root; reset the child’s local transform to
    identity if it previously carried the actor pose.
@@ -164,13 +164,13 @@ ENGINE.PrimitiveNode.create({
 });
 ```
 
-**Do not** leave motion/`collisionProfile` only on a nested child while the
+Do not leave motion/`collisionProfile` only on a nested child while the
 root stays physics-disabled if gameplay expects one moving body. Visual-only
 former roots (`physicsOptions.enabled: false`) need no lift — put them in
 `children` and omit root physics.
 
 Custom classes that are always placeable roots should set `isRoot` in the
-**constructor**, then build children in `initialize`:
+constructor, then build children in `initialize`:
 
 ```ts
 // After (14), preferred custom root
@@ -254,7 +254,7 @@ default (`replicateTransform = true`); that default is gone.
 
 Prefer a configured `MovementPawn` subclass: it replicates `PawnNetTransform`
 and applies remotes through `onRepPawnNetTransform` → `NetMovementPredictor`
-(the movement node consumes the predictor). Do **not** copy Actor-only
+(the movement node consumes the predictor). Do not copy Actor-only
 `replicateTransform` / `NetTransform` onto a Pawn. Custom non-movement roots
 that need transform sync must implement their own replicated property plus
 authority-side write and remote `onRep` application — merely adding a property
@@ -262,8 +262,8 @@ does not move remote instances.
 
 ### ReplicationGroup on non-Actor roots
 
-Setting `replicated = true` auto-adds a `ReplicationGroup` on **Actor** (setter
-/ `beginPlay`) and on **Pawn** (`initialize` when `replicated`). Custom
+Setting `replicated = true` auto-adds a `ReplicationGroup` on Actor (setter
+/ `beginPlay`) and on Pawn (`initialize` when `replicated`). Custom
 `SceneNode` / `PrimitiveNode` roots (Controllers, InfoNode subclasses, and
 other placeables that are not Actor or Pawn) must add the group explicitly:
 
@@ -416,7 +416,7 @@ const camera = world.getNode(ENGINE.ViewTargetCameraNode);
 const roots = world.getRootNodes();
 ```
 
-`world.getWorldRootNodes()` was removed with **no** shim — use
+`world.getWorldRootNodes()` was removed with no shim — use
 `world.getRootNodes()`.
 
 Choose queries deliberately:
@@ -432,7 +432,7 @@ The Actor-era lookups map across as follows:
 | Before (13) | After (14) |
 |---|---|
 | `getActors(T)` | `getNodes(T)` |
-| `getFirstActor(T)` | **`getNode(T)`** — not `getFirstNode` |
+| `getFirstActor(T)` | `getNode(T)` — not `getFirstNode` |
 | `getActorByName(n)` | `getNodeByName(n)` |
 | `getActorByUuid(u)` | `getNodeByUuid(u)` |
 | `getActorsByPredicate(p)` | `getNodesByPredicate(p)` |
@@ -442,7 +442,7 @@ The Actor-era lookups map across as follows:
 | `getActorIndex(root)` | `getRootNodes().indexOf(root)` |
 
 One lookup breaks the `Actor` → `Node` pattern: `getFirstActor(type)` becomes
-**`getNode(type)`**; there is no `getFirstNode(type)`. The predicate and tag forms
+`getNode(type)`; there is no `getFirstNode(type)`. The predicate and tag forms
 do keep the `getFirst…` prefix (`getFirstNodeByPredicate`, `getFirstNodeByTag`).
 
 These queries now live on `Object3D`, so they work on any node subtree rather than

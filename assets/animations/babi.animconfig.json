@@ -1,0 +1,51 @@
+{
+  "$root": {
+    "$bc": "ENGINE.AnimationConfigResource",
+    "autoPlay": true,
+    "parameters": {
+      "speed": 0,
+      "attack": 0
+    },
+    "initialState": "idle",
+    "states": {
+      "idle": {
+        "clip": "Armature|Boar_Idle",
+        "transitions": [
+          { "to": "attack", "condition": { "attack": { "greaterThan": 0.5 } }, "blendDuration": 0.12 },
+          { "to": "walk", "condition": { "speed": { "greaterThan": 0.3 } }, "blendDuration": 0.25 }
+        ]
+      },
+      "walk": {
+        "clip": "Armature|Boar_Walk",
+        "transitions": [
+          { "to": "attack", "condition": { "attack": { "greaterThan": 0.5 } }, "blendDuration": 0.12 },
+          { "to": "idle", "condition": { "speed": { "lessThanOrEqual": 0.3 } }, "blendDuration": 0.25 },
+          { "to": "run", "condition": { "speed": { "greaterThan": 1.0 } }, "blendDuration": 0.2 }
+        ]
+      },
+      "run": {
+        "clip": "Armature|Boar_Run",
+        "transitions": [
+          { "to": "attack", "condition": { "attack": { "greaterThan": 0.5 } }, "blendDuration": 0.12 },
+          { "to": "walk", "condition": { "speed": { "lessThanOrEqual": 1.0 } }, "blendDuration": 0.2 }
+        ]
+      },
+      "attack": {
+        "clip": "Armature|Boar_Attack",
+        "transitions": [
+          { "to": "run", "condition": { "clipFinished": true, "speed": { "greaterThan": 1.0 } }, "blendDuration": 0.2 },
+          { "to": "walk", "condition": { "clipFinished": true, "speed": { "greaterThan": 0.3 } }, "blendDuration": 0.2 },
+          { "to": "idle", "condition": { "clipFinished": true }, "blendDuration": 0.2 }
+        ]
+      }
+    },
+    "clipOptions": {
+      "Armature|Boar_Idle": { "loop": "LoopRepeat" },
+      "Armature|Boar_Walk": { "loop": "LoopRepeat" },
+      "Armature|Boar_Run": { "loop": "LoopRepeat" },
+      "Armature|Boar_Attack": { "loop": "LoopOnce", "clampWhenFinished": false }
+    },
+    "oneShotClips": []
+  },
+  "$version": 2
+}

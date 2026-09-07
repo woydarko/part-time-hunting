@@ -1,6 +1,6 @@
 ---
 name: genesys-ui-kit
-description: Build screen-space UI in a Genesys project using the engine's BaseUIComponent widgets (Button, ProgressBar, Crosshair, Compass, Minimap, InventoryBar / Grid, AmmoCounter, WeaponCard, NumberDisplay, ControlsPanel, ReloadIndicator, StatCard, ItemCard, PlayerCard, Badge, Avatar, Card, Toggle, NavItem, ChatMessage, Achievement, and more). Use whenever the user asks for HUD elements, menus, buttons, bars, inventories, crosshairs, minimaps, controls help, counters, scoreboards, chat UI, player names in the HUD, or any in-game UI — unless they explicitly request a custom look or a widget that has no engine match. Also use when choosing between textContent / label setters vs iconHtml, setHTML, or innerHTML (safe UI / XSS).
+description: Build in-game screen-space UI in a Genesys project from the engine's shipped BaseUIComponent widgets. Use for any HUD, menu, button, health or progress bar, inventory, crosshair, minimap, scoreboard, chat, or counter — before writing raw HTML or CSS. Also use when rendering player names or other dynamic text safely (textContent and label setters vs innerHTML / setHTML / iconHtml).
 ---
 
 # Genesys UI Kit
@@ -30,8 +30,8 @@ existing widget matches.
 
 ## Composition rule (mandatory)
 
-**Compound widgets MUST use `mountChild` with existing widget classes. Never
-re-implement a shipped widget inside another widget.**
+Compound widgets MUST use `mountChild` with existing widget classes. Never
+re-implement a shipped widget inside another widget.
 
 - If a panel needs a button → use `mountChild(ENGINE.Button, …, slot)`.
 - If a card needs a badge → use `mountChild(ENGINE.Badge, …, slot)`.
@@ -45,9 +45,6 @@ internally — do not set it yourself).
 The engine ships two examples to follow:
 - `ControlsPanel` mounts `Keystroke` children for each key binding.
 - `ItemCard` and `PlayerCard` mount `Badge` / `Avatar` children.
-
-Violating this rule produces duplicated CSS, divergent behavior when widget
-internals change, and widgets that the catalog cannot enumerate correctly.
 
 ## How to use a widget
 
@@ -120,7 +117,7 @@ ENGINE.UIPresets.Badge.blueLarge       // { color: 'blue', size: 'large' }
 ENGINE.UIPresets.ProgressBar.health    // { theme: 'health' }
 ```
 
-**Widgets with presets and their dimensions:**
+Widgets with presets and their dimensions:
 
 | Widget | Preset names | Dimensions |
 |--------|-------------|------------|
@@ -141,7 +138,7 @@ See `./references/customization.md` for the full list of per-widget options.
 ## Safe UI (mandatory)
 
 Widgets escape text in mustache/`label` slots. APIs named `*Html`, `icon`,
-`imageHtml`, and `UIElement.setHTML()` **parse markup** — treat them as
+`imageHtml`, and `UIElement.setHTML()` parse markup — treat them as
 trusted developer content only.
 
 | Do | Don't |
@@ -168,7 +165,7 @@ When falling back to custom DOM, build structure with `createElement` and assign
 dynamic strings to `textContent` or input `.value` — never interpolate them into
 HTML. Prefer widget text setters over raw DOM whenever a widget fits.
 
-**Read before shipping any HUD with dynamic or network text:**
+Read before shipping any HUD with dynamic or network text:
 [safe-ui](references/safe-ui.md) (full patterns: templates, `customStyles`, Input, checklist).
 For replicated / join strings, also use the `genesys-multiplayer`
 [ui-security](../genesys-multiplayer/references/ui-security.md) reference.
@@ -180,7 +177,7 @@ For replicated / join strings, also use the `genesys-multiplayer`
   must add custom DOM, use `world.gameContainer`.
 - Don't recreate widgets that already exist (e.g. a "health bar" is
   `ProgressBar` with `theme: 'health'`, not a new component).
-- Follow **Safe UI** above for every label, chat line, scoreboard, and icon slot.
+- Follow Safe UI above for every label, chat line, scoreboard, and icon slot.
 - Asset paths inside templates use `@engine/...` / `@project/...` prefixes
   and must be resolved with `ENGINE.resolveAssetPathsInText` when injected
   into raw HTML (still only for trusted markup you author).

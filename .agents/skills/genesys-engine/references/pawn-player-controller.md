@@ -12,26 +12,26 @@ Pawns extend `PrimitiveNode`. Controllers extend `SceneNode`. They are not `Acto
 `Pawn` is intentionally minimal. Capabilities are layered in subclasses so a game only pulls in
 what it needs:
 
-- **Pawn** — Possession bookkeeping only (controller reference, `onPossessed` / `onUnpossessed`,
-  `getCamera()`). Creates `ReplicationInfo` but does **not** auto-snap-replicate transforms
+- Pawn — Possession bookkeeping only (controller reference, `onPossessed` / `onUnpossessed`,
+  `getCamera()`). Creates `ReplicationInfo` but does not auto-snap-replicate transforms
   (that Actor-era default is gone). No movement node, no input, no combat/interaction.
-- **MovementPawn** — Adds `movementNode` (a `BasePawnMovementNode`; deprecated `movementComponent`
+- MovementPawn — Adds `movementNode` (a `BasePawnMovementNode`; deprecated `movementComponent`
   accessor remains) and action methods a Controller calls: `moveForward`, `moveRight`, `lookUp`,
   `lookRight`, `zoom`, `jump`, `stopJump`. Upgrades transform replication via movement prediction
   when configured.
-- **GameplayPawn** — Extends MovementPawn with combat (`fire`, `endFire`, `altFire`, `endAltFire`,
+- GameplayPawn — Extends MovementPawn with combat (`fire`, `endFire`, `altFire`, `endAltFire`,
   `reload` via equipped equipment nodes) and interaction (`interact`, `endInteract` via an
   auto-created interaction node), plus optional directional-light-following.
-- **CharacterPawn** — Extends MovementPawn with a ready-made camera/animation/mesh scaffold
+- CharacterPawn — Extends MovementPawn with a ready-made camera/animation/mesh scaffold
   (first- or third-person). No combat/interaction by itself.
-- **DefaultCharacterPawn** — Extends CharacterPawn and adds the same combat/interaction/
+- DefaultCharacterPawn — Extends CharacterPawn and adds the same combat/interaction/
   light-following as GameplayPawn (duplicated, not shared — see `ICombatPawn`/`IInteractPawn`
   below), plus raw `onKeyDown`/`onKeyUp`/`onMouseDown`/`onMouseUp`/`onGamepadButtonDown`/
   `onGamepadButtonUp`/`onGamepadAxisChange` delegates forwarded by `DefaultPlayerController` for
   compatibility with older `Pawn`-level input handling. This is the "batteries-included"
   pawn most demos and templates use; extend it directly if you just want a working player
   character.
-- **VRPawn** — Extends Pawn directly (VR input/teleport/grab, no movement node).
+- VRPawn — Extends Pawn directly (VR input/teleport/grab, no movement node).
 
 Pick the shallowest class that has what you need: a flying camera rig with no combat is a
 `MovementPawn`; a turret that only fires is a `GameplayPawn` without a mesh/camera scaffold; a
@@ -103,7 +103,9 @@ PlayerController.unpossess()
 - `createCollision()` — Replace the default capsule collision (returns `SceneNode | null`;
   `MoverCharacterPawn` requires non-null).
 - `createMovementNode()` — Swap in a different `BasePawnMovementNode` subclass (CharacterPawn family).
-  `MoverCharacterPawn` uses `createMoverNode()` / `MoverNode` instead.
+  `MoverCharacterPawn` uses `createMoverNode()` / `MoverNode` instead — see the `genesys-movement`
+  skill for the full mode-based Mover system (mode transitions, `LayeredMove`, `MovementModifier`,
+  and custom modes/controllers).
 - `getInitialCameraPositions()` — Returns `{ pivotPosition, cameraPosition }`. Equal positions
   produce a first-person camera; different positions produce a third-person spring-arm camera.
 - `setupCamera()` — Override only if the default pivot/spring-arm hierarchy does not fit.

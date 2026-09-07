@@ -57,7 +57,7 @@ export function main(
 }
 ```
 
-### Core Components
+### Core Classes
 
 GameMode — Defines rules, player spawning, and default classes (Pawn, PlayerController). Transient (not saved).
 

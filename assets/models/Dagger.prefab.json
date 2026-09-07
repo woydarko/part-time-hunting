@@ -1,0 +1,23 @@
+{
+  "$root": {
+    "$bc": "ENGINE.Prefab",
+    "$uuid": "59e77db8f4cf7f43",
+    "rootNode": {
+      "$bc": "ENGINE.ModelMeshNode",
+      "children": [],
+      "modelUrl": "@project/assets/models/dagger.glb",
+      "name": "Dagger",
+      "nodeId": 56241,
+      "prefabId": "bf778e3690f319f9",
+      "scale": {
+        "$bc": "v3",
+        "_": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      }
+    }
+  },
+  "$version": 3
+}

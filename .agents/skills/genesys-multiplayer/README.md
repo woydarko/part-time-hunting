@@ -28,5 +28,5 @@ Genesys multiplayer is built on `SceneNode` / `PrimitiveNode` roots, not the dep
 
 ## Contents
 
-- `SKILL.md` - Entry point, methodology, coding guidelines, and **Safe UI for replicated strings**.
+- `SKILL.md` - Entry point, methodology, coding guidelines, and Safe UI for replicated strings.
 - `references/` - Deep dives into each multiplayer subsystem (includes `ui-security.md`, `player-list-safe.md`).
