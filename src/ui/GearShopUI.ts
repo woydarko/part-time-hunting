@@ -10,6 +10,7 @@ import * as ENGINE from '@gnsx/genesys.js';
 import { WEAPONS, POTION_PRICES, ARROW_ITEM } from '../data/weapons.js';
 import { POTIONS, type PotionEffect } from '../data/potions.js';
 import { Potion3DPreview } from './Potion3DPreview.js';
+import { Sfx } from '../systems/Sfx.js';
 
 const CARD_URL = '@project/assets/textures/gearshop_card.png';
 // Shared leather-card palette (matches backpack / hotbar / sell merchant).
@@ -289,9 +290,9 @@ export class GearShopUI {
     if ((!item.equipId && !item.potion && !item.ammo) || !this.onBuy) return;
     const result = this.onBuy(cat.label, item);
     this.render(); // refresh gold + Owned state first (render clears feedback)
-    if (result === 'ok') this.setFeedback('Purchased!', '#bfe08a');
-    else if (result === 'owned') this.setFeedback('Already owned', 'rgba(255,255,255,0.7)');
-    else this.setFeedback('Not enough gold', '#ff8f6a');
+    if (result === 'ok') { this.setFeedback('Purchased!', '#bfe08a'); Sfx.play('buy', 0.8); }
+    else if (result === 'owned') { this.setFeedback('Already owned', 'rgba(255,255,255,0.7)'); Sfx.play('error', 0.5); }
+    else { this.setFeedback('Not enough gold', '#ff8f6a'); Sfx.play('error', 0.5); }
   }
 
   private setFeedback(text: string, color: string): void {

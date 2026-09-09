@@ -27,6 +27,7 @@ import { POTIONS, POTION_GRIP, type PotionEffect } from '../data/potions.js';
 import { ArrowProjectile } from '../nodes/ArrowProjectile.js';
 import { TrajectoryPreview } from '../nodes/TrajectoryPreview.js';
 import { Inventory } from '../systems/Inventory.js';
+import { saveProgress, loadProgress } from '../systems/SaveGame.js';
 import { BackpackUI } from '../ui/BackpackUI.js';
 import { FadeOverlay } from '../ui/FadeOverlay.js';
 import { GearShopUI, type GearItem, type BuyResult } from '../ui/GearShopUI.js';
@@ -40,8 +41,19 @@ import { InteractPrompt } from '../ui/InteractPrompt.js';
 import { Crosshair } from '../ui/Crosshair.js';
 import { WeaponTuner, type WeaponTune } from '../ui/WeaponTuner.js';
 import { ShopUI } from '../ui/ShopUI.js';
+import { PauseMenu } from '../ui/PauseMenu.js';
+import { FadingText } from '../ui/FadingText.js';
+import { LoadingScreen } from '../ui/LoadingScreen.js';
+import { preloadGameAssets } from '../systems/preloadGameAssets.js';
+import { getSettings } from '../systems/GameSettings.js';
+import { Sfx } from '../systems/Sfx.js';
 import { RUN_DUST, BURST_DUST, DASH_DUST } from '../vfx/DustVfx.js';
 import { WeaponTrailNode } from '../vfx/WeaponTrailNode.js';
+
+/** Target size + palm offset/rotation for a model held in the hand socket (potions, loot). */
+type HeldGrip = { size: number; offsetPos: readonly [number, number, number]; offsetRot: readonly [number, number, number] };
+/** Generic grip for held loot — auto-normalized to this world height; tune per-item later if needed. */
+const LOOT_GRIP: HeldGrip = { size: 0.22, offsetPos: [0, 0, 0], offsetRot: [0, 0, 0] };
 
 // Overall character size relative to the world (1 = engine default 1.8m capsule). Lowering this
 // shrinks the whole pawn AND every world-unit quantity derived from it (speeds, jump, dash,
@@ -84,8 +96,8 @@ const MELEE_FRONT_DOT = 0.2; // cos threshold — target must be within ~78 deg 
 const MELEE_STRIKE_DELAY = 0.22;
 // Movement is 30% slower while aiming (heavier, more deliberate strafing).
 const AIM_SPEED_MULT = 0.7;
-// Testing: skip arrow ammo cost/consumption (fire freely). Set false to re-enable the arrow economy.
-const UNLIMITED_ARROWS = true;
+// Arrow economy on: arrows are consumed per shot and must be bought/kept in the backpack.
+const UNLIMITED_ARROWS = false;
 // Knockback when an animal attack lands: a short, fast velocity burst away from the attacker.
 const KNOCKBACK_SPEED = 100 * CHARACTER_SCALE; // launch velocity — higher = faster AND farther
 const KNOCKBACK_DURATION = 0.4;
@@ -98,10 +110,13 @@ const DRINK_CLIP_SPEED = 1.6 / DRINK_TOTAL; // slow Use_Item (native ~1.6s) to l
 
 // Dodge roll (Shift + direction). Grounded only.
 const DODGE_STATES = new Set(['dodge_f', 'dodge_b', 'dodge_l', 'dodge_r']);
-const DODGE_KEYS = ['ShiftLeft', 'ShiftRight'];
+const DASH_KEY = 'KeyQ';                          // tap Q to dash
+const SPRINT_KEYS = ['ShiftLeft', 'ShiftRight'];  // hold Shift to sprint
 const DASH_SPEED = 13.3 * CHARACTER_SCALE; // dash velocity m/s (scaled to pawn size so the dash covers a proportional distance)
 const DODGE_DURATION = 0.6;   // seconds the burst decays over (0.5*speed*duration ~= distance)
 const DODGE_COOLDOWN = 0.6;   // seconds between rolls
+// Sprint: hold Shift to run faster (the same key taps into a dash). Multiplies the current max speed.
+const SPRINT_MULT = 1.5;
 // Dodge clip is 0.4s; stretch it to match DODGE_DURATION so the animation and the dash
 // burst end together (velocity ~0 at exit = no clamp jitter / position snap).
 const DODGE_CLIP_SPEED = 0.4 / 0.6;
@@ -265,22 +280,27 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private gearShopUI: GearShopUI | null = null;
   private backpackUI: BackpackUI | null = null;
   private interactPrompt: InteractPrompt | null = null;
-  private lootToast = '';        // transient "+ loot" message shown after a kill
-  private lootToastTimer = 0;    // seconds remaining for the loot toast
   private crosshair: Crosshair | null = null;
   private weaponTuner: WeaponTuner | null = null;
   private inventory: Inventory | null = null;
   private hotbarInventory: Inventory | null = null;
   private goldHUD: GoldHUD | null = null;
   private gold = 0;
+  private restoring = false;    // true while loading a save (suppresses re-saving mid-restore)
   private damageMult = 1;       // 2x while a red damage potion is active
   private speedTimer = 0;       // remaining seconds of the speed buff
   private damageTimer = 0;      // remaining seconds of the damage buff
   private healTimer = 0;        // remaining seconds of heal-over-time
   private baseMaxSpeed = 0;     // movement max speed without the speed buff
+  private sprinting = false;    // Shift held → sprint (tap Shift also dashes)
   private shopOpen = false;              // true while ANY NPC menu (shop / gear shop) is open
   private activeMenuHide: (() => void) | null = null; // hides whichever menu is currently open
   private backpackOpen = false;
+  private pauseMenu: PauseMenu | null = null;
+  private lockHandler: (() => void) | null = null; // pointerlockchange -> opens pause when lock is lost
+  private wasLocked = false;    // previous pointer-lock state (to detect the Esc-release edge)
+  private paused = false;      // in-game pause menu open (world tick frozen)
+  private preloading = false;  // assets loading behind the loading screen (control held)
 
   // Shop camera (a cinematic "trade shot" while the shop is open).
   private shopNpc: ENGINE.SceneNode | null = null;
@@ -318,6 +338,15 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private readonly potionNodes = new Map<string, ENGINE.ModelMeshNode>();
   private readonly potionReq = new Set<string>();
   private heldPotion: PotionEffect | null = null; // potion currently held in hand (ready to drink)
+
+  // Held loot (visual-only): any loot item selected in the hotbar shows its 3D model in the hand.
+  private readonly lootNodes = new Map<string, ENGINE.ModelMeshNode>();
+  private readonly lootReq = new Set<string>();
+  private heldLoot: string | null = null;         // modelUrl of the loot currently held (or null)
+
+  // Transient text popups (both fade out): loot pickup toast + held-item name above the hotbar.
+  private pickupToast: FadingText | null = null;
+  private itemNamePopup: FadingText | null = null;
   private drinkPulse = 0;          // frames to hold the `doDrink` param true (one-shot pulse)
   private drinking = false;
   private drinkTimer = 0;          // seconds into the current drink
@@ -341,6 +370,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private burstDust: ENGINE.VFXNode | null = null;
   private dashDust: ENGINE.VFXNode | null = null;
   private dustEmitting = false;
+  private footstepTimer = 0; // cadence counter for footstep SFX while moving
+  // Ambient audio: in-game music + wind gusts appear at random intervals (Minecraft-style), not on a loop.
+  private gameMusicTimer = 45 + Math.random() * 90; // first track after 45-135s
+  private windTimer = 18 + Math.random() * 32;       // first gust after 18-50s
   private wasGrounded = true;
 
   // Weapon slash trail (follows the equipped weapon's tip).
@@ -455,7 +488,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     });
     // Scale horizontal speed and jump velocity to the pawn size so locomotion stays proportional
     // (a tiny character at the default 5 m/s would look like it's rocketing across the map).
-    node.maxSpeed *= CHARACTER_SCALE * 1.2; // +20% move speed
+    node.maxSpeed *= CHARACTER_SCALE * 1.4; // +40% base move speed (was +20%; base walk felt too slow)
     node.jumpSpeed *= CHARACTER_SCALE;
     return node as ENGINE.BasePawnMovementNode;
   }
@@ -523,8 +556,13 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.onKeyDown.add((e: KeyboardEvent) => {
       if (e.repeat) return false;
       if (e.code === 'Escape') {
+        // Close whatever is open (these states have a free cursor, so the engine handler gets Esc).
+        // Opening pause from locked gameplay is handled by the window listener below, because the
+        // browser grabs Esc to exit pointer-lock before the engine handler ever sees it.
         if (this.shopOpen) { this.closeShop(); return true; }
         if (this.backpackOpen) { this.closeBackpack(); return true; }
+        if (this.paused) { this.closePause(); return true; }
+        return true;
       }
       // B toggles the backpack (not while shopping / mid camera return / dead).
       if (e.code === 'KeyB' && !this.shopOpen && !this.shopCamReturning && !this.isDead) {
@@ -535,15 +573,20 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       if (e.code === PICKUP_KEY) {
         this.pickupPulse = 2;             // play the pickup gesture
         this.nearestLoot()?.pickUp();     // grab any loot right at the player's feet
-      } else if (e.code === 'KeyG') {
-        this.weaponTuner?.toggle();
-        this.seedWeaponTuner();
-      } else if (DODGE_KEYS.includes(e.code)) {
-        this.triggerDodge();
+      } else if (e.code === DASH_KEY) {
+        this.triggerDodge();     // tap Q = dash burst
+      } else if (SPRINT_KEYS.includes(e.code)) {
+        this.sprinting = true;   // hold Shift = sprint
       } else if (e.code.startsWith('Digit')) {
         const n = Number(e.code.slice(5));
         if (n >= 1 && n <= HOTBAR_SLOT_COUNT) this.selectSlot(n - 1);
       }
+      return false;
+    });
+
+    // Release Shift → stop sprinting.
+    this.onKeyUp.add((e: KeyboardEvent) => {
+      if (SPRINT_KEYS.includes(e.code)) this.sprinting = false;
       return false;
     });
 
@@ -558,13 +601,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       const starter = WEAPONS['dagger'];
       if (starter) this.hotbarInventory.set(0, { icon: starter.icon, name: starter.name, equipId: starter.id, iconModelUrl: starter.iconUrl, iconTextureUrl: starter.iconTextureUrl });
       this.hotbar = new Hotbar(gc, this.hotbarInventory, (i) => this.selectSlot(i));
-      // If the equipped item is dragged out of the active slot, re-equip from what's now there.
-      this.hotbarInventory.onChange(() => {
-        if (this.drinking || !this.armed || this.activeSlot < 0) return; // don't swap weapons mid-drink
-        const equipId = this.hotbarInventory?.get(this.activeSlot)?.equipId;
-        const nextId = equipId && WEAPONS[equipId] ? equipId : null;
-        if (nextId !== this.equippedId) this.equipWeapon(nextId);
-      });
+      // If the item in the active slot changes (dragged out, or a different item dropped in), refresh
+      // what's held in hand to match — weapon, potion, loot, or empty.
+      this.hotbarInventory.onChange(() => this.refreshActiveSlot());
       this.healthBar = new HealthBar(gc);
       this.healthBar.setHealth(this.health, MAX_HEALTH);
       this.chargeBar = new ChargeBar(gc);
@@ -572,29 +611,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       this.fadeOverlay = new FadeOverlay(gc);
       this.interactPrompt = new InteractPrompt(gc);
       this.crosshair = new Crosshair(gc);
-      // Dev overlay to tune the held weapon's grip transform live (toggle with G).
-      this.weaponTuner = new WeaponTuner(gc, (t) => this.applyWeaponTune(t));
-      // Shared player inventory (3x4 = 12 slots) — used by the backpack and the sell shop.
-      // Starts empty: loot is EARNED by hunting (granted on each kill, sold at the merchant).
+      // Shared player inventory (3x4 = 12 slots) — used by the backpack and the sell shop. Starts
+      // EMPTY: the player begins with only the dagger (in the hotbar) and must hunt loot for gold,
+      // then buy weapons/potions/arrows from the shops. (Full economy loop — no starter seeds.)
       this.inventory = new Inventory(12);
-      // Loot is EARNED by hunting (granted on each kill, sold at the merchant) — the backpack starts
-      // empty of loot. Testing: still seed the buyable weapons so they can be dragged to the hotbar
-      // without grinding gold. (Remove this loop to force the pure buy-from-shop loop.)
-      for (const id of ['axe', 'blade', 'bow', 'crossbow']) {
-        const def = WEAPONS[id];
-        if (def) this.inventory?.add({ icon: def.icon, name: def.name, equipId: def.id, iconModelUrl: def.iconUrl, iconTextureUrl: def.iconTextureUrl });
-      }
-      // Testing: seed a stack of every potion (prefer the hotbar so they're usable right away).
-      for (const p of ['heal', 'speed', 'damage'] as PotionEffect[]) {
-        const def = POTIONS[p];
-        const entry = { icon: def.icon, name: def.name, potion: def.id, count: 5, iconModelUrl: def.modelUrl };
-        if ((this.hotbarInventory?.addStack(entry) ?? -1) === -1) this.inventory?.addStack(entry);
-      }
-      // Testing: start with a stack of arrows so ranged weapons can fire immediately.
-      this.inventory?.addStack({
-        icon: ARROW_ITEM.icon, name: ARROW_ITEM.name, price: ARROW_ITEM.price, stackId: 'arrow',
-        iconModelUrl: ARROW_ITEM.modelUrl, iconTextureUrl: ARROW_ITEM.textureUrl, count: 8,
-      });
       this.goldHUD = new GoldHUD(gc, this.gold);
       this.shopUI = new ShopUI(gc, () => this.closeShop(), this.inventory, (total) => this.addGold(total), () => this.gold);
       this.gearShopUI = new GearShopUI(
@@ -605,10 +625,104 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
         () => this.gold,
       );
       this.backpackUI = new BackpackUI(gc, this.inventory, () => this.closeBackpack());
+
+      // Restore saved progress (gold + both inventories) if a previous run was saved. Done before
+      // wiring the auto-save listeners so the restore itself doesn't trigger a redundant save.
+      const saved = loadProgress();
+      if (saved) {
+        this.restoring = true;
+        this.gold = saved.gold;
+        if (Array.isArray(saved.hotbar)) this.hotbarInventory.load(saved.hotbar);
+        if (Array.isArray(saved.backpack)) this.inventory.load(saved.backpack);
+        this.goldHUD.set(this.gold);
+        this.restoring = false;
+      }
+      // Auto-save whenever either inventory changes (buy, sell, pickup, drag, consume).
+      this.hotbarInventory.onChange(() => this.persist());
+      this.inventory.onChange(() => this.persist());
+
+      this.pauseMenu = new PauseMenu(gc, () => this.closePause(), () => this.gotoMainMenu(), (v) => this.applyVolume(v));
+      // Loot-pickup toast (top-centre, big) + held-item name flash (above the hotbar) — both fade out.
+      this.pickupToast = new FadingText(gc, {
+        css: { top: '14%', left: '50%', transform: 'translateX(-50%)', color: '#fff', font: '800 34px system-ui, sans-serif', textShadow: '0 2px 8px rgba(0,0,0,0.85)' },
+        holdSeconds: 1.4, fadeSeconds: 0.8,
+      });
+      this.itemNamePopup = new FadingText(gc, {
+        css: { bottom: '120px', left: '50%', transform: 'translateX(-50%)', color: '#ffe9c2', font: '800 26px system-ui, sans-serif', textShadow: '0 2px 6px rgba(0,0,0,0.85)' },
+        holdSeconds: 1.0, fadeSeconds: 0.5,
+      });
+      // Apply the saved master volume up front.
+      this.applyVolume(getSettings().volume);
+      // Open pause when the player presses Esc during gameplay. Chrome does NOT deliver the Esc
+      // keydown that releases pointer-lock, so we detect it via the pointer-lock CHANGE edge instead:
+      // if the lock is lost while we're in normal play (no menu open), that Esc means "pause".
+      this.lockHandler = () => {
+        const locked = document.pointerLockElement != null;
+        if (!locked && this.wasLocked && !this.paused && !this.shopOpen && !this.backpackOpen && !this.preloading && !this.isDead) {
+          this.openPause();
+        }
+        this.wasLocked = locked;
+      };
+      document.addEventListener('pointerlockchange', this.lockHandler);
+
+      // Preload all gameplay assets behind a loading screen so nothing pops in; hold control until done.
+      this.preloading = true;
+      LoadingScreen.show(gc);
+      void preloadGameAssets().finally(() => { this.preloading = false; LoadingScreen.hide(); });
     }
     // Loot now bursts out physically on death; grant it to the backpack when the player picks it up.
     LootDrop.onPickup = (item) => this.onLootPickup(item);
     return true;
+  }
+
+  /** Random in-game music track + occasional wind gusts (not looped — they surface unpredictably). */
+  private updateAmbientAudio(deltaTime: number): void {
+    if (this.preloading) return;
+    this.gameMusicTimer -= deltaTime;
+    if (this.gameMusicTimer <= 0) {
+      Sfx.playTrack('gameMusic', 'Music', 0.4);
+      this.gameMusicTimer = 210 + Math.random() * 210; // next track in ~3.5-7 min
+    }
+    this.windTimer -= deltaTime;
+    if (this.windTimer <= 0) {
+      Sfx.playTrack('wind', 'Ambience', 0.5);
+      this.windTimer = 25 + Math.random() * 50; // gusts every 25-75s
+    }
+  }
+
+  /** Set master audio volume (0..1). */
+  private applyVolume(v: number): void {
+    this.getWorld()?.globalAudioManager?.getBus('Master')?.setVolume(v);
+  }
+
+  /** Open the in-game pause menu: freeze the world, free the cursor, show the overlay. */
+  private openPause(): void {
+    if (this.paused || this.isDead || this.shopOpen || this.backpackOpen || this.preloading) return;
+    this.paused = true;
+    this.getWorld()?.consoleManager?.executeConsoleCommand('pause');
+    this.pauseMenu?.show();
+    this.setCursorFree(true);
+    Sfx.play('uiOpen', 0.7);
+  }
+
+  private closePause(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // toggle back to running
+    this.pauseMenu?.hide();
+    this.setCursorFree(false);
+    Sfx.play('uiClose', 0.7);
+  }
+
+  /** Leave the game and return to the main-menu scene. */
+  private gotoMainMenu(): void {
+    if (this.paused) this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // unfreeze before the switch
+    this.paused = false;
+    // Cover the scene swap so the raw menu-backdrop map isn't shown before the menu overlay/camera
+    // are up — MainMenuNode hides this once it has built.
+    const gc = this.getWorld()?.gameContainer;
+    if (gc) LoadingScreen.show(gc);
+    void this.getWorld()?.gameLoop?.openLevel('@project/assets/mainmenu.genesys-scene');
   }
 
   /** Refresh the status HUD: arrow count + active potion-effect countdowns. */
@@ -644,8 +758,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       icon: item.icon, name: item.name, price: item.price,
       stackId: item.id, iconModelUrl: item.modelUrl, count: 1,
     });
-    this.lootToast = `+ ${item.icon} ${item.name}`;
-    this.lootToastTimer = 2.0;
+    this.pickupToast?.show(`+1 ${item.name}`);
+    Sfx.play('lootPickup', 0.8);
   }
 
   public override endPlay(): boolean {
@@ -669,10 +783,24 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.gearShopUI = null;
     this.backpackUI?.dispose();
     this.backpackUI = null;
+    this.pauseMenu?.dispose();
+    this.pauseMenu = null;
+    this.pickupToast?.dispose();
+    this.pickupToast = null;
+    this.itemNamePopup?.dispose();
+    this.itemNamePopup = null;
+    if (this.lockHandler) { document.removeEventListener('pointerlockchange', this.lockHandler); this.lockHandler = null; }
+    LoadingScreen.hide();
     this.goldHUD?.dispose();
     this.goldHUD = null;
+    this.crosshair?.dispose();
+    this.crosshair = null;
+    this.weaponTuner?.dispose();
+    this.weaponTuner = null;
     this.trail?.removeFromParent();
     this.trail = null;
+    this.trajectory?.removeFromParent();
+    this.trajectory = null;
     return true;
   }
 
@@ -686,6 +814,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (this.isDead || amount <= 0) return;
     this.health = Math.max(0, this.health - amount);
     this.healthBar?.setHealth(this.health, MAX_HEALTH);
+    if (this.health > 0) Sfx.playRandom(['playerHurt1', 'playerHurt2', 'playerHurt3', 'playerHurt4', 'playerHurt5'], 0.8);
     if (knockFrom) {
       const dir = this.getWorldPosition(new THREE.Vector3()).sub(knockFrom);
       dir.y = 0;
@@ -708,6 +837,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   /** Kill the pawn: freeze, black fade, then respawn at the last safe ground. */
   public die(): void {
     if (this.isDead) return;
+    Sfx.play('playerDie', 0.9);
     this.isDead = true;
     this.health = 0;
     this.healthBar?.setHealth(0, MAX_HEALTH);
@@ -747,6 +877,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.shopNpc = npc ?? null;
     this.activeMenuHide = hide;
     show();
+    Sfx.play('uiOpen', 0.7);
     this.interactPrompt?.set('');
     // Hide the player's own body — the trade shot focuses on the NPC.
     if (this.characterMesh) this.characterMesh.visible = false;
@@ -784,6 +915,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.shopOpen = false;
     this.activeMenuHide?.();
     this.activeMenuHide = null;
+    Sfx.play('uiClose', 0.7);
     if (this.characterMesh) this.characterMesh.visible = true;
     // Hand the camera into the "returning" phase; it lerps back to the follow rig (same feel as the
     // entry swing), then releases in finishShopCamReturn().
@@ -890,6 +1022,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.backpackUI.show();
     this.interactPrompt?.set('');
     this.setCursorFree(true);
+    Sfx.play('uiOpen', 0.7);
   }
 
   public closeBackpack(): void {
@@ -897,12 +1030,25 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.backpackOpen = false;
     this.backpackUI?.hide();
     this.setCursorFree(false);
+    Sfx.play('uiClose', 0.7);
   }
 
   /** Add gold (e.g. from selling loot) and refresh the HUD. */
   public addGold(amount: number): void {
     this.gold += amount;
     this.goldHUD?.set(this.gold);
+    Sfx.play('gold', 0.7);
+    this.persist();
+  }
+
+  /** Persist the current run (gold + inventories) to localStorage. No-op while restoring a save. */
+  private persist(): void {
+    if (this.restoring || !this.hotbarInventory || !this.inventory) return;
+    saveProgress({
+      gold: this.gold,
+      hotbar: this.hotbarInventory.serialize(),
+      backpack: this.inventory.serialize(),
+    });
   }
 
   /** True if a weapon id already sits in the hotbar or backpack. */
@@ -970,7 +1116,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     // Apply the current buff states.
     const mn = this.movementNode;
     if (mn instanceof ENGINE.CharacterMovementNode) {
-      mn.maxSpeed = this.speedTimer > 0 ? this.baseMaxSpeed * 1.4 : this.baseMaxSpeed;
+      const buffMult = this.speedTimer > 0 ? 1.4 : 1;
+      const sprintMult = this.sprinting && !this.drinking && !this.isDead ? SPRINT_MULT : 1;
+      mn.maxSpeed = this.baseMaxSpeed * buffMult * sprintMult;
     }
     this.damageMult = this.damageTimer > 0 ? 2 : 1;
   }
@@ -987,6 +1135,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.heldPotion = effect;
     this.equippedId = null; // a bottle occupies the hand — no weapon
     this.armed = false;
+    this.hideLoot(); // a bottle occupies the hand — put away any held loot
     this.showPotion(effect); // bottle appears in the right hand (weapons hidden)
   }
 
@@ -995,6 +1144,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (this.drinking || !this.heldPotion || this.activeSlot < 0) return;
     if (this.isDead || this.shopOpen || this.backpackOpen) return;
     if (!this.animationNode?.isReady()) return;
+    Sfx.play('drink', 0.8);
     this.drinking = true;
     this.drinkTimer = 0;
     this.drinkEffect = this.heldPotion;
@@ -1027,36 +1177,63 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     socket.add(node);
     node.setPhysicsEnabled(false, true);
     this.potionNodes.set(effect, node);
-    const fit = () => this.fitHeldPotion(node, socket);
+    const fit = () => this.fitHeldModel(node, socket, POTION_GRIP);
     if (node.isModelLoaded?.()) fit();
     else node.onMeshLoaded?.add(() => fit());
   }
 
   /**
-   * Normalize a raw bottle model to a consistent hand-held size and recenter it in the palm — the
-   * source glbs have wildly different scales/pivots, so seating them raw puts them huge and offset.
+   * Normalize a raw held model to a consistent hand-held size and recenter it in the palm — source
+   * glbs have wildly different scales/pivots, so seating them raw puts them huge and offset. `grip`
+   * gives the target size + palm offset/rotation (used for potions and loot).
    */
-  private fitHeldPotion(node: ENGINE.ModelMeshNode, socket: THREE.Object3D): void {
+  private fitHeldModel(node: ENGINE.ModelMeshNode, socket: THREE.Object3D, grip: HeldGrip): void {
     node.updateWorldMatrix(true, true);
     const box = new THREE.Box3().setFromObject(node);
     if (box.isEmpty()) return;
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    node.scale.multiplyScalar((POTION_GRIP.size * CHARACTER_SCALE) / maxDim); // target world height
+    node.scale.multiplyScalar((grip.size * CHARACTER_SCALE) / maxDim); // target world height
     // Recenter: bring the model's world center to the socket origin (the palm), then nudge by grip.
     node.updateWorldMatrix(true, true);
     const center = new THREE.Box3().setFromObject(node).getCenter(new THREE.Vector3());
     socket.updateWorldMatrix(true, false);
     const localCenter = center.applyMatrix4(new THREE.Matrix4().copy(socket.matrixWorld).invert());
     node.position.sub(localCenter);
-    node.position.x += POTION_GRIP.offsetPos[0];
-    node.position.y += POTION_GRIP.offsetPos[1];
-    node.position.z += POTION_GRIP.offsetPos[2];
+    node.position.x += grip.offsetPos[0];
+    node.position.y += grip.offsetPos[1];
+    node.position.z += grip.offsetPos[2];
     node.rotation.set(
-      THREE.MathUtils.degToRad(POTION_GRIP.offsetRot[0]),
-      THREE.MathUtils.degToRad(POTION_GRIP.offsetRot[1]),
-      THREE.MathUtils.degToRad(POTION_GRIP.offsetRot[2]),
+      THREE.MathUtils.degToRad(grip.offsetRot[0]),
+      THREE.MathUtils.degToRad(grip.offsetRot[1]),
+      THREE.MathUtils.degToRad(grip.offsetRot[2]),
     );
+  }
+
+  /** Show a loot item's model in the right hand (visual only). Lazily loaded + size-normalized. */
+  private holdLoot(modelUrl: string): void {
+    this.heldLoot = modelUrl;
+    // Hide any other held loot; reveal (or lazily load) the requested one.
+    for (const [url, node] of this.lootNodes) node.visible = url === modelUrl;
+    if (this.lootNodes.has(modelUrl)) return;
+    if (!this.characterMesh || this.lootReq.has(modelUrl)) return;
+    const socket = this.characterMesh.getSocket(SOCKET_NAME);
+    if (!socket) return;
+    this.lootReq.add(modelUrl);
+    const node = ENGINE.ModelMeshNode.create({ name: 'HeldLoot', modelUrl, physicsOptions: { enabled: false }, castShadow: true });
+    node.visible = this.heldLoot === modelUrl;
+    socket.add(node);
+    node.setPhysicsEnabled(false, true);
+    this.lootNodes.set(modelUrl, node);
+    const fit = () => this.fitHeldModel(node, socket, LOOT_GRIP);
+    if (node.isModelLoaded?.()) fit();
+    else node.onMeshLoaded?.add(() => fit());
+  }
+
+  /** Put away any held loot model. */
+  private hideLoot(): void {
+    this.heldLoot = null;
+    for (const node of this.lootNodes.values()) node.visible = false;
   }
 
   /** Put the bottle away and restore the equipped weapon's visibility. */
@@ -1095,6 +1272,31 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   // Equipment / hotbar
   //====================================================================================================
 
+  /**
+   * Re-sync the item held in hand with whatever now sits in the active slot. Called on any hotbar
+   * change so dragging a different item into the equipped slot (or emptying it) updates the hand,
+   * not just the icon. Silent (no selection SFX) and guarded so unchanged slots don't churn.
+   */
+  private refreshActiveSlot(): void {
+    if (this.drinking || this.activeSlot < 0) return;
+    const item = this.hotbarInventory?.get(this.activeSlot);
+    // Active slot emptied → put away whatever was in hand (weapon / potion / loot).
+    if (!item) { this.equipWeapon(null); this.hideLoot(); return; }
+    // Potion now in the active slot: hold the bottle.
+    if (item.potion) {
+      if (this.heldPotion !== item.potion) this.holdPotion(this.activeSlot, item.potion as PotionEffect);
+      return;
+    }
+    // Loot model (no weapon/potion): hold it in bare hands.
+    if (item.iconModelUrl && !item.equipId) {
+      if (this.heldLoot !== item.iconModelUrl) { this.equipWeapon(null); this.holdLoot(item.iconModelUrl); }
+      return;
+    }
+    // Weapon: equip the registered weapon in the slot (or bare hands for an unknown id).
+    const nextId = item.equipId && WEAPONS[item.equipId] ? item.equipId : null;
+    if (nextId !== this.equippedId) this.equipWeapon(nextId);
+  }
+
   private selectSlot(index: number): void {
     if (this.drinking) return; // locked mid-drink: can't switch weapons/potions until the sip finishes
     // Pressing the already-active slot again deselects it (toggle off / unequip / put bottle away).
@@ -1102,6 +1304,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       this.activeSlot = -1;
       this.hotbar?.setActive(-1);
       this.equipWeapon(null);
+      Sfx.play('unequip', 0.6);
       return;
     }
     const item = this.hotbarInventory?.get(index);
@@ -1109,22 +1312,39 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     // player clicks (left mouse), so selecting never consumes it.
     if (item?.potion) {
       this.holdPotion(index, item.potion as PotionEffect);
+      if (item.name) this.itemNamePopup?.show(item.name);
+      Sfx.play('hotbarSelect', 0.6);
       return;
     }
     this.activeSlot = index;
     this.hotbar?.setActive(index);
+    // Loot item (no weapon/potion, just a 3D model): hold it in hand, visual only.
+    if (item && item.iconModelUrl && !item.equipId) {
+      this.equipWeapon(null);              // bare hands (hides any weapon)
+      this.holdLoot(item.iconModelUrl);
+      if (item.name) this.itemNamePopup?.show(item.name);
+      Sfx.play('hotbarSelect', 0.6);
+      return;
+    }
     // Item-driven equip: equip whatever registered weapon sits in the selected slot.
     const equipId = item?.equipId;
     this.equipWeapon(equipId && WEAPONS[equipId] ? equipId : null);
+    if (item?.name && equipId) this.itemNamePopup?.show(item.name);
+    if (equipId && WEAPONS[equipId]) {
+      Sfx.play(WEAPONS[equipId]?.ranged ? 'equip' : 'equipMelee', 0.7); // ranged = bow/crossbow, else sword
+    } else {
+      Sfx.play('hotbarSelect', 0.6);
+    }
   }
 
   /** Equip a registered weapon by id (or null for bare hands). Lazily loads the model. */
   private equipWeapon(id: string | null): void {
-    // Switching to a weapon (or bare hands) puts away any held potion bottle.
+    // Switching to a weapon (or bare hands) puts away any held potion bottle + held loot.
     if (this.heldPotion) {
       this.heldPotion = null;
       for (const node of this.potionNodes.values()) node.visible = false;
     }
+    if (id !== null) this.hideLoot(); // equipping a real weapon puts loot away (bare-hands keeps it for holdLoot)
     this.equippedId = id;
     this.armed = id !== null;
     this.applyWeapon();
@@ -1309,8 +1529,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (ranged) {
       if (!this.aiming || this.fireCdTimer > 0) return;
       if (!UNLIMITED_ARROWS && (this.inventory?.countOf('arrow') ?? 0) <= 0) { // no ammo -> dry click
-        this.lootToast = 'Out of arrows!';
-        this.lootToastTimer = 1.2;
+        this.pickupToast?.show('Out of arrows!');
+        Sfx.play('error', 0.5);
         return;
       }
     } else {
@@ -1335,6 +1555,18 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       this.fireCdTimer = rs?.fireCooldown ?? 0.4; // reload
       this.chargeTimer = 0;                        // must re-draw for the next shot
     } else {
+      // Armed = weapon swipe; barehand combo is Punch (step 1) -> Kick (step 2).
+      if (this.armed) {
+        if (this.isTwoHand()) {
+          // Axe: regular strikes use 'axe'; the spin (comboStep 3) uses 'axe360'.
+          Sfx.play(this.comboStep === 3 ? 'axe360' : 'axe', 0.7);
+        } else {
+          // Dagger / 1H: alternate 1-2-1-2 across the combo.
+          Sfx.play(this.comboStep % 2 === 1 ? 'dagger1' : 'dagger2', 0.7);
+        }
+      } else {
+        Sfx.play('punch', 0.75); // barehand punch + kick share the same whoosh
+      }
       this.lungeTimer = LUNGE_DURATION; // step forward on each melee swing
       this.meleeStrikeTimer = MELEE_STRIKE_DELAY; // hit lands mid-swing, not on click (no spam-hits)
     }
@@ -1358,6 +1590,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       if (dist > MELEE_REACH + animal.getHitRadius()) continue;
       if (dist > 1e-4 && to.normalize().dot(fwd) < MELEE_FRONT_DOT) continue; // behind the pawn — miss
       animal.takeDamage(dmg);
+      Sfx.play3d('hitAnimal', c, 0.7); // melee connect (crunch)
     }
   }
 
@@ -1424,6 +1657,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private fireArrow(): void {
     const world = this.getWorld();
     if (!world) return;
+    Sfx.play('bowFire', 0.8);
     if (!UNLIMITED_ARROWS) this.inventory?.consumeStack('arrow'); // spend one arrow per shot
     const rs = this.rangedStats();
     const spawnPos = this.arrowSpawnPoint(new THREE.Vector3());
@@ -1467,7 +1701,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (this.fireCdTimer > 0) this.fireCdTimer = Math.max(0, this.fireCdTimer - deltaTime);
     const rs = this.rangedStats();
     if (rs && this.aiming && this.fireCdTimer <= 0) {
+      const wasZero = this.chargeTimer <= 0;
       this.chargeTimer = Math.min(rs.chargeTime, this.chargeTimer + deltaTime);
+      if (wasZero && this.chargeTimer > 0) Sfx.play('bowCharge', 0.7); // each fresh draw (aim start + after every shot)
     } else if (!this.aiming || !rs) {
       this.chargeTimer = 0;
     }
@@ -1573,6 +1809,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (mn instanceof ENGINE.CharacterMovementNode && !mn.getGrounded()) return; // ground only
     const st = this.animationNode.getGraphState('base') ?? '';
     if (DODGE_STATES.has(st) || ATTACK_STATES.has(st) || st === 'pickup') return;
+    Sfx.play('dash', 0.7);
 
     // Input direction relative to the camera, projected onto the character's facing.
     const camQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, this.camYaw, 0, 'YXZ'));
@@ -1745,8 +1982,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       }
     }
 
-    if (this.isDead || this.shopOpen || this.shopCamReturning || this.backpackOpen || this.drinking) {
-      // Frozen: death fade, an open menu, the camera return, or drinking a potion (rooted 3s).
+    // Look sensitivity from settings — aiming uses its own (usually lower) value.
+    const settings = getSettings();
+    ENGINE.DefaultPlayerController.inputSettings.lookSensitivity = this.aiming ? settings.aimSensitivity : settings.tpSensitivity;
+
+    if (this.isDead || this.shopOpen || this.shopCamReturning || this.backpackOpen || this.drinking || this.paused || this.preloading) {
+      // Frozen: death fade, an open menu, the camera return, drinking a potion, pause, or preloading.
       if (mn) { mn.addForwardInput(0); mn.addRightInput(0); mn.addLookRightInput(0); }
       // Kill any residual planar velocity so the pawn doesn't coast/slide while rooted.
       if (this.drinking && mn instanceof ENGINE.CharacterMovementNode) {
@@ -1864,6 +2105,16 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       const moving = grounded && planar > DUST_MIN_SPEED && !inDodge;
       if (moving && !this.dustEmitting) { this.runDust?.startEmitting(); this.dustEmitting = true; }
       else if (!moving && this.dustEmitting) { this.runDust?.stopEmitting(); this.dustEmitting = false; }
+      // Footstep SFX cadence while moving.
+      if (moving) {
+        this.footstepTimer -= deltaTime;
+        if (this.footstepTimer <= 0) {
+          Sfx.play('footstep', 0.28); // single grass step
+          this.footstepTimer = 0.34;
+        }
+      } else {
+        this.footstepTimer = 0;
+      }
       if (!this.wasGrounded && grounded) this.burstDust?.startEmitting(true); // landing puff
       this.wasGrounded = grounded;
 
@@ -1914,12 +2165,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     // (both hidden while dead or shopping).
     if (this.interactPrompt) {
       let prompt = '';
-      if (this.lootToastTimer > 0) {
-        this.lootToastTimer -= deltaTime;
-        if (this.lootToastTimer <= 0) this.lootToast = '';
-        else prompt = this.lootToast;
-      }
-      if (!prompt && !this.isDead && !this.shopOpen && !this.shopCamReturning && !this.backpackOpen) {
+      if (!this.isDead && !this.shopOpen && !this.shopCamReturning && !this.backpackOpen) {
         const loot = this.nearestLoot();
         prompt = loot?.item
           ? `F to pick up ${loot.item.name}`
@@ -1933,6 +2179,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     // Timed potion effects + HUD.
     this.updateEffects(deltaTime);
     this.updateStatusHUD();
+    this.updateAmbientAudio(deltaTime);
 
     // Feed one-shot / combat parameters to the state machine.
     if (this.animationNode && this.animationNode.isReady()) {

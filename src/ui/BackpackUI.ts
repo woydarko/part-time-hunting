@@ -75,7 +75,9 @@ export class BackpackUI {
     // Grid slots tinted to the leather-card palette; fixed slotSize so the 4-col grid fills the
     // card's inner flat area (stretch/1fr collapses under the panel's alignItems:center).
     this.grid = new ItemGrid(inventory, {
-      columns: 4, draggable: true, showPrice: true, slotSize: 72,
+      // Backpack shows the stack COUNT only (price is a shop concept) — avoids the price/count badges
+      // overlapping in the same corner and being misread as quantity.
+      columns: 4, draggable: true, showPrice: false, slotSize: 72,
       slotBackground: 'rgba(232,208,170,0.92)', slotBorder: 'rgba(120,78,40,0.85)',
     });
 

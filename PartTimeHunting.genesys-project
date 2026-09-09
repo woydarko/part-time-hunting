@@ -2,12 +2,12 @@
   "defaultScene": "@project/assets/mainmenu.genesys-scene",
   "engineVersion": "16.1.21-staging",
   "assetCompiler": {
-    "enabled": false,
+    "enabled": true,
     "compileOnPlay": false,
     "textureCompression": {
-      "enabled": true,
+      "enabled": false,
       "quality": "medium",
-      "maxSize": 2048,
+      "maxSize": 1024,
       "formats": {
         "png": true,
         "jpeg": true,
@@ -30,5 +30,6 @@
         "m4a": true
       }
     }
-  }
+  },
+  "gameId": "7d357735-7787-4a97-b079-8b0dcb216a53"
 }

@@ -132,6 +132,20 @@ export class Inventory {
     return true;
   }
 
+  /** Snapshot of all slots (deep-copied) for persistence. */
+  public serialize(): (InventoryItem | null)[] {
+    return this.slots.map((s) => (s ? { ...s } : null));
+  }
+
+  /** Replace all slots from a saved snapshot (deep-copied), then emit one change. */
+  public load(items: (InventoryItem | null)[]): void {
+    for (let i = 0; i < this.slots.length; i++) {
+      const src = i < items.length ? items[i] : null;
+      this.slots[i] = src ? { ...src } : null;
+    }
+    this.emit();
+  }
+
   /** Subscribe to change events. Returns an unsubscribe function. */
   public onChange(cb: () => void): () => void {
     this.listeners.add(cb);

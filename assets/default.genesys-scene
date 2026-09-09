@@ -13,7 +13,7 @@
               0.83077
             ]
           },
-          10
+          16
         ]
       }
     }
@@ -63,16 +63,16 @@
         "position": {
           "$bc": "v3",
           "_": [
-            10,
-            50,
-            -10
+            34.1,
+            38.7,
+            -80.2
           ]
         },
         "rotation": {
           "$bc": "e",
           "_": [
-            1.919862,
-            0,
+            1.396263,
+            -0.174533,
             0
           ]
         },
@@ -125,10 +125,12 @@
         "children": {
           "$length": 1
         },
-        "cloudDensity": 0.7,
+        "cloudCoverage": 0.45,
+        "cloudDensity": 0.6,
         "cloudElevation": 0.42,
-        "cloudScale": 0.00081,
+        "cloudScale": 0.00056,
         "cloudSpeed": 0.00005,
+        "environmentMapIntensity": 1.1,
         "generateEnvironmentMap": true,
         "mieDirectionalG": 0.85,
         "name": "Sky",
@@ -141,6 +143,15 @@
             0
           ]
         },
+        "rayleigh": 0.8,
+        "rotation": {
+          "$bc": "e",
+          "_": [
+            0,
+            -0.872665,
+            0
+          ]
+        },
         "scale": {
           "$bc": "v3",
           "_": [
@@ -149,6 +160,15 @@
             10000
           ]
         },
+        "sunPosition": {
+          "$bc": "v3",
+          "_": [
+            0,
+            1.81,
+            0
+          ]
+        },
+        "turbidity": 10.4,
         "userData": {
           "objectFlags": 6
         },
@@ -753,17 +773,17 @@
             "nodeType": "actor"
           },
           {
-            "id": "8267061c-f4af-4050-b7b4-c8f14261a8aa",
-            "isExpanded": false,
-            "nodeType": "actor"
-          },
-          {
             "id": "a020ccb2-373b-40a2-b429-cf1feb858e20",
             "isExpanded": false,
             "nodeType": "actor"
           },
           {
             "id": "7393dc1179980698",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "8267061c-f4af-4050-b7b4-c8f14261a8aa",
             "isExpanded": false,
             "nodeType": "actor"
           },
@@ -829,16 +849,6 @@
           },
           {
             "id": "0a60ffbb6ee0ccad",
-            "isExpanded": false,
-            "nodeType": "actor"
-          },
-          {
-            "id": "e5b94e802e79585f",
-            "isExpanded": false,
-            "nodeType": "actor"
-          },
-          {
-            "id": "dc9819b4ba47a5ae",
             "isExpanded": false,
             "nodeType": "actor"
           }

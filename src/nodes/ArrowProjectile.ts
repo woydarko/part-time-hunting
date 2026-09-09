@@ -13,6 +13,7 @@ import * as ENGINE from '@gnsx/genesys.js';
 import * as THREE from 'three';
 
 import { WildAnimal } from '../animals/WildAnimal.js';
+import { Sfx } from '../systems/Sfx.js';
 
 const MAX_STUCK = 5; // at most this many arrows stay embedded; a new one evicts the oldest
 
@@ -104,6 +105,7 @@ export class ArrowProjectile extends ENGINE.SceneNode {
       }
       if (animal.containsPoint(here, 0.05)) {
         animal.takeDamage(this.damage);
+        Sfx.play3d('arrowHit', here, 0.9); // arrow-connect feedback
         this.launched = false;
         this.canEverTick = false;
         this.removeFromParent(); // don't stick to the moving model — just vanish on an animal hit

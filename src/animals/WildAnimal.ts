@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { RUN_DUST } from '../vfx/DustVfx.js';
 import { ANIMALS, resolveDrops, type DropItem } from '../data/animals.js';
 import { LootDrop } from '../nodes/LootDrop.js';
+import { Sfx } from '../systems/Sfx.js';
 import type { SpeciesConfig } from '../data/species.js';
 
 /** Deep-copy a VFX definition and scale spawn offsets / size / speed / gravity by `f`. */
@@ -95,7 +96,7 @@ export class WildAnimal extends ENGINE.SceneNode {
   @ENGINE.property()
   public attackRange: number = 2;
   @ENGINE.property()
-  public attackCooldown: number = 2;
+  public attackCooldown: number = 3;
   /** One-shot attack clip name (empty = no attack; deer/rabbit). */
   @ENGINE.property()
   public attackClip: string = '';
@@ -392,19 +393,26 @@ export class WildAnimal extends ENGINE.SceneNode {
     this.stateTime = 0;
     this.fleeTime = 0;
     this.navRepathTimer = 0; // repath immediately for the new goal
+    this.playReactionSfx();  // aggro (boar/bear chasing) or run (deer fleeing)
   }
 
   /** Tint the model red briefly to signal a hit. */
   private flashRed(): void {
     this.flashTimer = 0.15;
     if (this.flashMats.size === 0 && this.meshNode) {
+      // Clone to per-instance materials first: same-species animals share the cached GLTF's
+      // materials, so tinting a shared material would flash EVERY rabbit at once. Cloning + reassigning
+      // isolates this animal's flash.
       this.meshNode.traverse((o) => {
-        const mat = (o as unknown as { material?: unknown }).material;
-        for (const m of Array.isArray(mat) ? mat : [mat]) {
+        const holder = o as unknown as { material?: unknown };
+        const mat = holder.material;
+        if (!mat) return;
+        const cloneOne = (m: unknown) => (m as { clone?: () => unknown }).clone?.() ?? m;
+        const cloned = Array.isArray(mat) ? mat.map(cloneOne) : cloneOne(mat);
+        holder.material = cloned;
+        for (const m of Array.isArray(cloned) ? cloned : [cloned]) {
           const em = (m as { emissive?: { setHex: (h: number) => void } })?.emissive;
-          if (em) {
-            this.flashMats.add(m as { emissive?: { setHex: (h: number) => void } });
-          }
+          if (em) this.flashMats.add(m as { emissive?: { setHex: (h: number) => void } });
         }
       });
     }
@@ -413,10 +421,27 @@ export class WildAnimal extends ENGINE.SceneNode {
     }
   }
 
+  /** Play the species chase/flee reaction sound (throttled so repeated hits don't spam it). */
+  private reactionSfxAt = 0;
+  private playReactionSfx(): void {
+    const now = performance.now();
+    if (now - this.reactionSfxAt < 1500) return;
+    this.reactionSfxAt = now;
+    const pos = this.getWorldPosition(new THREE.Vector3());
+    if (this.state === 'chase') {
+      if (this.species === 'boar') Sfx.play3d('boarAggro', pos, 0.8);
+      else if (this.species === 'bear') Sfx.play3d('bearAggro', pos, 0.85);
+    } else if (this.state === 'flee' && this.species === 'deer') {
+      Sfx.play3d('deerRun', pos, 0.7);
+    }
+  }
+
   private die(): void {
     if (this.dead) {
       return;
     }
+    const deathSfx = { rabbit: 'rabbitDeath', deer: 'deerDeath', boar: 'boarDeath', bear: 'bearDeath' } as const;
+    Sfx.play3d(deathSfx[this.species as keyof typeof deathSfx] ?? 'animalDeath', this.getWorldPosition(new THREE.Vector3()), 0.85);
     this.dead = true;
     const i = WildAnimal.alive.indexOf(this);
     if (i >= 0) {
@@ -429,7 +454,9 @@ export class WildAnimal extends ENGINE.SceneNode {
     const drops = this.getDropItems();
     if (world && drops.length > 0) {
       const p = this.getWorldPosition(new THREE.Vector3());
-      LootDrop.spawnBurst(world, p.x, p.y, p.z, drops);
+      // Defer the loot burst one frame: keeps the death frame (sound + ragdoll setup) light so the
+      // GLTF clones + ground raycasts of the drops don't spike into a visible freeze.
+      setTimeout(() => { try { LootDrop.spawnBurst(world, p.x, p.y, p.z, drops); } catch { /* world gone */ } }, 0);
     }
     // Stop kicking up dust; keep the body visible and play the tip-over/fade death animation over
     // DEATH_TOTAL (also outlasts the RUN_DUST particle lifetime so the trail dust expires in place).
@@ -590,6 +617,7 @@ export class WildAnimal extends ENGINE.SceneNode {
       const d = Math.hypot(this.player.position.x - this.position.x, this.player.position.z - this.position.z);
       if (d <= this.fleeWhenNear) {
         this.state = 'flee';
+        this.playReactionSfx(); // deer run/flee cry
         this.stateTime = 0;
         this.fleeTime = 0;
       }

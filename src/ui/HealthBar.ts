@@ -1,59 +1,80 @@
 /**
- * HealthBar - a simple HUD health bar (red fill on a dark track) in the bottom-left corner.
- * Developer-authored content only (safe UI — no dynamic/untrusted strings; values are numbers).
+ * HealthBar - bottom-left HUD: a player portrait above a health bar, with a coloured HP number to the
+ * side. The bar fill + number shift colour with health (>=80% green, 20-79% yellow, <20% red).
+ * Developer-authored content only (safe UI — values are numbers, portrait is our own asset).
  */
+
+import * as ENGINE from '@gnsx/genesys.js';
+
+const PORTRAIT_URL = '@project/assets/textures/chara_hp.png';
+
+function hpColor(frac: number): string {
+  if (frac >= 0.8) return '#5be05b'; // green
+  if (frac >= 0.2) return '#ffd24a'; // yellow
+  return '#ff5a5a';                  // red
+}
 
 export class HealthBar {
   private readonly root: HTMLElement;
   private readonly fill: HTMLElement;
-  private current = 1; // fraction 0..1
+  private readonly num: HTMLElement;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement('div');
     Object.assign(this.root.style, {
-      position: 'absolute',
-      left: '24px',
-      bottom: '24px',
-      width: '320px',
-      height: '30px',
-      padding: '4px',
-      background: 'rgba(0,0,0,0.45)',
-      border: '2px solid rgba(0,0,0,0.6)',
-      borderRadius: '5px',
-      boxSizing: 'border-box',
-      userSelect: 'none',
-      pointerEvents: 'none',
-      zIndex: '50',
+      position: 'absolute', left: '24px', bottom: '24px',
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px',
+      userSelect: 'none', pointerEvents: 'none', zIndex: '50',
     } as CSSStyleDeclaration);
 
+    // Player portrait (above the bar).
+    const portrait = document.createElement('img');
+    Object.assign(portrait.style, {
+      height: '72px', width: 'auto', objectFit: 'contain',
+      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.6))',
+    } as CSSStyleDeclaration);
+    ENGINE.resolveAssetPathsInText(PORTRAIT_URL).then((url) => { portrait.src = url; }).catch(() => { /* noop */ });
+
+    // Row: bar + number.
+    const row = document.createElement('div');
+    Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '12px' } as CSSStyleDeclaration);
+
+    const bar = document.createElement('div');
+    Object.assign(bar.style, {
+      width: '320px', height: '30px', padding: '4px', boxSizing: 'border-box',
+      background: 'rgba(0,0,0,0.45)', border: '2px solid rgba(0,0,0,0.6)', borderRadius: '5px',
+    } as CSSStyleDeclaration);
     const track = document.createElement('div');
     Object.assign(track.style, {
-      position: 'relative',
-      width: '100%',
-      height: '100%',
-      background: 'rgba(40,10,10,0.8)',
-      borderRadius: '3px',
-      overflow: 'hidden',
+      position: 'relative', width: '100%', height: '100%',
+      background: 'rgba(40,10,10,0.8)', borderRadius: '3px', overflow: 'hidden',
     } as CSSStyleDeclaration);
-
     this.fill = document.createElement('div');
     Object.assign(this.fill.style, {
-      width: '100%',
-      height: '100%',
-      background: 'linear-gradient(#ff5a5a, #c72d2d)',
-      transition: 'width 0.15s ease-out',
+      width: '100%', height: '100%', background: hpColor(1), transition: 'width 0.15s ease-out, background 0.15s',
     } as CSSStyleDeclaration);
-
     track.appendChild(this.fill);
-    this.root.appendChild(track);
+    bar.appendChild(track);
+
+    this.num = document.createElement('div');
+    Object.assign(this.num.style, {
+      font: '800 30px system-ui, sans-serif', color: hpColor(1), textShadow: '0 2px 4px rgba(0,0,0,0.75)', minWidth: '48px',
+    } as CSSStyleDeclaration);
+    this.num.textContent = '100';
+
+    row.append(bar, this.num);
+    this.root.append(portrait, row);
     container.appendChild(this.root);
   }
 
-  /** Update the bar from current/max health. */
+  /** Update the bar + number from current/max health. */
   public setHealth(current: number, max: number): void {
     const frac = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0;
-    this.current = frac;
+    const color = hpColor(frac);
     this.fill.style.width = `${frac * 100}%`;
+    this.fill.style.background = color;
+    this.num.textContent = String(Math.max(0, Math.round(current)));
+    this.num.style.color = color;
   }
 
   public dispose(): void {
