@@ -371,6 +371,14 @@ export class WildAnimal extends ENGINE.SceneNode {
     return true;
   }
 
+  public override endPlay(): boolean {
+    // A level unload (back to the menu, leaving co-op) removes live animals without a death; drop
+    // them here so arrows and melee in the next session never hit ghosts at their old positions.
+    const i = WildAnimal.alive.indexOf(this);
+    if (i >= 0) WildAnimal.alive.splice(i, 1);
+    return super.endPlay();
+  }
+
   public setOnDeath(cb: () => void): void {
     this.onDeath = cb;
   }
