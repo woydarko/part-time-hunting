@@ -10,9 +10,12 @@ import * as THREE from 'three';
 
 import { SFX, type SfxKey } from '../data/sounds.js';
 
+import { isHeadless } from './Net.js';
+
 type SoundHandle = { id: string; audioUrl: string; isPositional: boolean };
 
 function mgr(): ENGINE.GlobalAudioManager | null {
+  if (isHeadless()) return null; // the co-op dedicated server has no audio
   try { return ENGINE.GlobalAudioManager.getInstance(); } catch { return null; }
 }
 

@@ -7,13 +7,17 @@
  * arrow tips downward as it arcs.
  *
  * Spawned in code (not authored in a scene). Call `launch()` once after adding it to the world.
+ *
+ * Co-op: every machine flies its own copy of the arrow (the shooter's pawn multicasts the launch),
+ * so everyone sees it, but only the server (or solo play) applies the damage. Arrows hurt animals
+ * only, never other players.
  */
 
 import * as ENGINE from '@gnsx/genesys.js';
 import * as THREE from 'three';
 
 import { WildAnimal } from '../animals/WildAnimal.js';
-import { Sfx } from '../systems/Sfx.js';
+import { isAuthority } from '../systems/Net.js';
 
 const MAX_STUCK = 5; // at most this many arrows stay embedded; a new one evicts the oldest
 
@@ -66,6 +70,11 @@ export class ArrowProjectile extends ENGINE.SceneNode {
     this.launched = true;
   }
 
+  /** The pawn that fired this arrow, if it was a pawn (credited as the animal's attacker). */
+  private shooter(): ENGINE.Pawn | null {
+    return this.ignoreRoot instanceof ENGINE.Pawn ? this.ignoreRoot : null;
+  }
+
   private orientToVelocity(): void {
     if (this.velocity.lengthSq() < 1e-8) return;
     this.tmpDir.copy(this.velocity).normalize();
@@ -104,8 +113,8 @@ export class ArrowProjectile extends ENGINE.SceneNode {
         continue;
       }
       if (animal.containsPoint(here, 0.05)) {
-        animal.takeDamage(this.damage);
-        Sfx.play3d('arrowHit', here, 0.9); // arrow-connect feedback
+        // The animal plays the hit sound itself (on every machine) when the server registers the hit.
+        if (isAuthority()) animal.takeDamage(this.damage, this.shooter(), true);
         this.launched = false;
         this.canEverTick = false;
         this.removeFromParent(); // don't stick to the moving model — just vanish on an animal hit
@@ -128,8 +137,8 @@ export class ArrowProjectile extends ENGINE.SceneNode {
         ignoredRootNodes: this.ignoreRoot ? [this.ignoreRoot] : undefined,
       });
       if (hit) {
-        const target = (hit.hitNode?.getRoot() ?? hit.hitNode) as unknown as { takeDamage?: (n: number) => void } | null;
-        target?.takeDamage?.(this.damage);
+        const target = hit.hitNode?.getRoot() ?? hit.hitNode;
+        if (target instanceof WildAnimal && isAuthority()) target.takeDamage(this.damage, this.shooter(), true);
         this.stick(hit.hitLocation);
         return;
       }

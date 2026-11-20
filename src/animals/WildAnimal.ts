@@ -3,7 +3,9 @@ import * as THREE from 'three';
 
 import { RUN_DUST } from '../vfx/DustVfx.js';
 import { ANIMALS, resolveDrops, type DropItem } from '../data/animals.js';
+import { HuntSpawner } from '../nodes/HuntSpawner.js';
 import { LootDrop } from '../nodes/LootDrop.js';
+import { isAuthority, isOnline } from '../systems/Net.js';
 import { Sfx } from '../systems/Sfx.js';
 import type { SpeciesConfig } from '../data/species.js';
 
@@ -41,6 +43,10 @@ const DEATH_FADE_START = 0.6;             // fade begins at this fraction (lets 
  * `provokeDuration` seconds — a flee animal (aggressive = false) runs away zigzag; an aggressive
  * animal chases and attacks. Configure per species with @property (the same class serves the two
  * flee animals and the two aggressive ones). Movement is kinematic (position-driven).
+ *
+ * Co-op: the server (or solo play) owns the animal. It runs the AI, takes damage, deals damage and
+ * spawns the loot. Clients show it from a few replicated values (position, heading, speed, hit /
+ * attack counters, dead flag). An aggressive animal chases whoever hit it, else the nearest player.
  */
 @ENGINE.GameClass()
 export class WildAnimal extends ENGINE.SceneNode {
@@ -152,6 +158,27 @@ export class WildAnimal extends ENGINE.SceneNode {
   /** Set after death (read by a spawner to recount / respawn). */
   public dead: boolean = false;
 
+  // ---- replicated state (server writes, clients display) ----
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'vector3', quantization: { mode: 'scale', scale: 100 } } })
+  public netPos: THREE.Vector3 = new THREE.Vector3();
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'float', quantization: { mode: 'scale', scale: 100 } } })
+  public netYaw: number = 0;
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'float', quantization: { mode: 'scale', scale: 100 }, epsilon: 2 } })
+  public netSpeed: number = 0;
+  /** Bumped by the server on every non-lethal hit; clients flash red + play the hit sound. */
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'uint' } })
+  public netHitSeq: number = 0;
+  /** Whether the latest hit was an arrow (picks the hit sound on clients). */
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'bool' } })
+  public netHitByArrow: boolean = false;
+  /** Bumped by the server each time the animal starts an attack; clients play the attack clip. */
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'uint' } })
+  public netAttackSeq: number = 0;
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'bool' } })
+  public netDead: boolean = false;
+  /** Client: a server position has arrived (until then, keep the spawn position). */
+  private hasNetPos = false;
+
   /** All living animals — arrows scan these for proximity hits (no physics collider). */
   public static readonly alive: WildAnimal[] = [];
 
@@ -256,6 +283,8 @@ export class WildAnimal extends ENGINE.SceneNode {
   private attackStrikeTimer: number = -1; // >0 = counting down to the attack's damage frame
   private playerQueryTimer: number = 0;
   private player: ENGINE.Pawn | null = null;
+  /** The player who last hit this animal (chased / fled from while provoked). */
+  private aggroTarget: ENGINE.Pawn | null = null;
   private readonly target = { x: 0, z: 0 };
   private readonly home = { x: 0, y: 0, z: 0 };
   // Stuck detection: if it's trying to move but makes no ground over a window, force a hard reroute.
@@ -265,6 +294,9 @@ export class WildAnimal extends ENGINE.SceneNode {
   constructor() {
     super();
     this.canEverTick = true;
+    // Its own replicated entity, spawned by HuntSpawner on the server and mirrored on clients.
+    this.isRoot = true;
+    this.replicated = true;
   }
 
   public override beginPlay(): boolean {
@@ -317,7 +349,8 @@ export class WildAnimal extends ENGINE.SceneNode {
     // Build a navmesh from the static scene geometry once, so aggressive animals can path around
     // obstacles when chasing instead of wedging against them (fire-and-forget; chase falls back to
     // straight-line steering until it's ready).
-    if (!WildAnimal.navBuildStarted) {
+    // Only the machine that runs the AI needs the navmesh (clients just display the animal).
+    if (!WildAnimal.navBuildStarted && isAuthority()) {
       WildAnimal.navBuildStarted = true;
       const world = this.getWorld();
       const nav = world?.gameLoop?.navigationServer;
@@ -342,8 +375,11 @@ export class WildAnimal extends ENGINE.SceneNode {
     this.onDeath = cb;
   }
 
-  /** Create + place a WildAnimal from a species config at a world position (used by the spawner). */
-  public static spawnFromConfig(world: ENGINE.World, cfg: SpeciesConfig, x: number, y: number, z: number): WildAnimal {
+  /**
+   * Build (not add) a WildAnimal from a species config at a world position. HuntSpawner adds it on the
+   * server and on every client, so all of them run this with the same arguments.
+   */
+  public static fromConfig(cfg: SpeciesConfig, x: number, y: number, z: number): WildAnimal {
     const a = WildAnimal.create({ name: `Animal_${cfg.species}` }) as WildAnimal;
     a.species = cfg.species;
     a.modelUrl = cfg.modelUrl;
@@ -365,15 +401,23 @@ export class WildAnimal extends ENGINE.SceneNode {
     if (cfg.knockbackForce != null) a.knockbackForce = cfg.knockbackForce;
     a.spawnMarkerName = ''; // placed directly — don't teleport to a marker
     a.position.set(x, y, z);
-    world.add(a);
+    a.netPos.set(x, y, z);
     return a;
   }
 
   private panicBoost: number = 0;
 
-  public takeDamage(amount: number): void {
-    if (this.dead) {
+  /**
+   * Server / solo only: apply a hit. `attacker` (the hitting player's pawn) becomes the chase / flee
+   * target, so in co-op the animal reacts to whoever hit it. Calls on a client are ignored.
+   */
+  public takeDamage(amount: number, attacker: ENGINE.Pawn | null = null, byArrow = false): void {
+    if (this.dead || !this.hasAuthority()) {
       return;
+    }
+    if (attacker) {
+      this.player = attacker;
+      this.aggroTarget = attacker;
     }
     if (this.hp < 0) {
       this.hp = this.health;
@@ -383,7 +427,10 @@ export class WildAnimal extends ENGINE.SceneNode {
       this.die(); // lethal hit: no red flash — go straight to the limp ragdoll
       return;
     }
+    this.netHitByArrow = byArrow;
+    this.netHitSeq++;
     this.flashRed();
+    this.playHitSfx();
     // Survived the hit -> get provoked (flee or turn aggressive), a little faster each hit (panic).
     this.provokeTimer = this.provokeDuration;
     // Bigger panic burst so a hit animal quickly pulls away — after a swing or two it's out of melee
@@ -394,6 +441,37 @@ export class WildAnimal extends ENGINE.SceneNode {
     this.fleeTime = 0;
     this.navRepathTimer = 0; // repath immediately for the new goal
     this.playReactionSfx();  // aggro (boar/bear chasing) or run (deer fleeing)
+  }
+
+  /** Hit sound at the animal (arrow thunk or melee crunch). */
+  private playHitSfx(): void {
+    const pos = this.getWorldPosition(new THREE.Vector3());
+    if (this.netHitByArrow) Sfx.play3d('arrowHit', pos, 0.9);
+    else Sfx.play3d('hitAnimal', pos, 0.7);
+  }
+
+  /** Client: the server registered a non-lethal hit. */
+  public onRepNetHitSeq(): void {
+    if (this.dead) return;
+    this.flashRed();
+    this.playHitSfx();
+    this.state = this.aggressive ? 'chase' : 'flee'; // only picks the reaction sound on clients
+    this.playReactionSfx();
+  }
+
+  /** Client: the server killed this animal. */
+  public onRepNetDead(): void {
+    if (this.netDead) this.die();
+  }
+
+  /** Client: the server started an attack. */
+  public onRepNetAttackSeq(): void {
+    if (!this.dead) this.playAttackAnim();
+  }
+
+  /** Client: a server position update arrived. */
+  public onRepNetPos(): void {
+    this.hasNetPos = true;
   }
 
   /** Tint the model red briefly to signal a hit. */
@@ -443,6 +521,7 @@ export class WildAnimal extends ENGINE.SceneNode {
     const deathSfx = { rabbit: 'rabbitDeath', deer: 'deerDeath', boar: 'boarDeath', bear: 'bearDeath' } as const;
     Sfx.play3d(deathSfx[this.species as keyof typeof deathSfx] ?? 'animalDeath', this.getWorldPosition(new THREE.Vector3()), 0.85);
     this.dead = true;
+    if (this.hasAuthority()) this.netDead = true;
     const i = WildAnimal.alive.indexOf(this);
     if (i >= 0) {
       WildAnimal.alive.splice(i, 1);
@@ -452,7 +531,7 @@ export class WildAnimal extends ENGINE.SceneNode {
     // Burst physical loot out of the corpse (falls, collides, slides, then pick up by interact).
     const world = this.getWorld();
     const drops = this.getDropItems();
-    if (world && drops.length > 0) {
+    if (world && drops.length > 0 && isAuthority()) {
       const p = this.getWorldPosition(new THREE.Vector3());
       // Defer the loot burst one frame: keeps the death frame (sound + ragdoll setup) light so the
       // GLTF clones + ground raycasts of the drops don't spike into a visible freeze.
@@ -577,13 +656,19 @@ export class WildAnimal extends ENGINE.SceneNode {
         this.deathFade -= deltaTime;
         this.applyGroundY(); // keep the corpse resting on the terrain (don't clip through)
         this.applyDeathAnim(1 - Math.max(0, this.deathFade) / DEATH_TOTAL, deltaTime);
-        if (this.deathFade <= 0) {
-          this.removeFromParent();
+        // The server removes the corpse for everyone; a client keeps its faded copy until then.
+        if (this.deathFade <= 0 && this.hasAuthority()) {
+          const spawner = HuntSpawner.find(this.getWorld());
+          if (!spawner?.despawnInstance(this)) this.removeFromParent();
         }
       }
       return;
     }
     if (deltaTime <= 0) {
+      return;
+    }
+    if (!this.hasAuthority()) {
+      this.tickProxy(deltaTime);
       return;
     }
     this.refreshPlayer(deltaTime);
@@ -665,6 +750,49 @@ export class WildAnimal extends ENGINE.SceneNode {
         v.stopEmitting();
       }
       this.dustEmitting = false;
+    }
+
+    // Publish the result for clients (no-op cost in solo play: nothing is sent).
+    if (isOnline()) {
+      this.netPos.copy(this.position);
+      this.netYaw = this.rotation.y;
+      this.netSpeed = this.lastSpeed;
+    }
+  }
+
+  /**
+   * Client tick: glide toward the server's position and heading, and drive the walk/run blend and
+   * the foot dust from the server's speed. No AI runs here.
+   */
+  private tickProxy(deltaTime: number): void {
+    if (this.flashTimer > 0) {
+      this.flashTimer -= deltaTime;
+      if (this.flashTimer <= 0) {
+        for (const m of this.flashMats) {
+          m.emissive?.setHex(0x000000);
+        }
+      }
+    }
+    if (this.hasNetPos) {
+      // Exponential smoothing hides the gaps between ~30 Hz server updates.
+      const k = 1 - Math.exp(-12 * deltaTime);
+      if (this.position.distanceToSquared(this.netPos) > 25) this.position.copy(this.netPos); // big jump: snap
+      else this.position.lerp(this.netPos, k);
+      let diff = this.netYaw - this.rotation.y;
+      while (diff > Math.PI) { diff -= Math.PI * 2; }
+      while (diff < -Math.PI) { diff += Math.PI * 2; }
+      this.rotation.y += diff * k;
+    }
+    this.setLocomotion(this.netSpeed);
+    const moving = this.lastSpeed > 0.3;
+    if (this.hopDust) {
+      this.updateHopPuff(moving, deltaTime);
+    } else if (moving !== this.dustEmitting) {
+      for (const v of this.footDust) {
+        if (moving) v.startEmitting();
+        else v.stopEmitting();
+      }
+      this.dustEmitting = moving;
     }
   }
 
@@ -858,7 +986,18 @@ export class WildAnimal extends ENGINE.SceneNode {
     }
   }
 
+  /** Server / solo: start an attack (clients play the clip from netAttackSeq). */
   private playAttack(): void {
+    if (this.attackClip === '' || !this.animationNode?.isReady()) {
+      return;
+    }
+    this.netAttackSeq++;
+    this.playAttackAnim();
+    this.attackStrikeTimer = this.attackStrikeDelay; // damage lands at the clip's real strike frame
+  }
+
+  /** Play the one-shot attack clip (all machines). */
+  private playAttackAnim(): void {
     const node = this.animationNode;
     if (!node || !node.isReady() || this.attackClip === '') {
       return;
@@ -866,7 +1005,6 @@ export class WildAnimal extends ENGINE.SceneNode {
     node.setParameter('attack', 1);
     // Auto-clear after the clip; simplest: a short timer via attackLock handled by caller.
     setTimeout(() => node.setParameter('attack', 0), this.attackDuration * 1000);
-    this.attackStrikeTimer = this.attackStrikeDelay; // damage lands at the clip's real strike frame
   }
 
   /** Deal the attack's damage to the player if still within (a little beyond) attack range. */
@@ -1007,13 +1145,40 @@ export class WildAnimal extends ENGINE.SceneNode {
     this.target.z = cz + Math.sin(angle) * range;
   }
 
+  /**
+   * Pick the player this animal reacts to: whoever last hit it while it is still provoked (and alive),
+   * else the nearest living player. Re-evaluated once a second.
+   */
   private refreshPlayer(deltaTime: number): void {
     this.playerQueryTimer -= deltaTime;
     if (this.playerQueryTimer > 0) {
       return;
     }
     this.playerQueryTimer = 1;
-    this.player = this.getWorld()?.getPlayerControllerAt(0)?.getPawn() ?? null;
+    const world = this.getWorld();
+    if (!world) {
+      this.player = null;
+      return;
+    }
+    const isAlive = (p: ENGINE.Pawn | null): p is ENGINE.Pawn =>
+      !!p && p.getWorld() === world && !(p as unknown as { isDead?: boolean }).isDead;
+    if (this.provokeTimer > 0 && isAlive(this.aggroTarget)) {
+      this.player = this.aggroTarget;
+      return;
+    }
+    this.aggroTarget = null;
+    let best: ENGINE.Pawn | null = null;
+    let bestD = Infinity;
+    for (const pc of world.getNodes(ENGINE.PlayerController)) {
+      const pawn = pc.getPawn();
+      if (!isAlive(pawn)) continue;
+      const d = Math.hypot(pawn.position.x - this.position.x, pawn.position.z - this.position.z);
+      if (d < bestD) {
+        bestD = d;
+        best = pawn;
+      }
+    }
+    this.player = best;
   }
 
   private randomRange(min: number, max: number): number {

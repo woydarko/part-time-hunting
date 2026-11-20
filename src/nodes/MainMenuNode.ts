@@ -12,8 +12,8 @@ import * as ENGINE from '@gnsx/genesys.js';
 import { installGameFont } from '../ui/gameFont.js';
 import { LoadingScreen } from '../ui/LoadingScreen.js';
 import { Sfx } from '../systems/Sfx.js';
+import { GAME_SCENE_URL } from '../data/scenes.js';
 
-const GAME_SCENE_URL = '@project/assets/default.genesys-scene';
 const LOGO_URL = '@project/assets/materials/logo_pth.png';
 const BTN_CARD_URL = '@project/assets/materials/button_card.png';
 const STUDIO_LOGO_URL = '@project/assets/textures/tengok_logo_black.png';
@@ -76,7 +76,16 @@ export class MainMenuNode extends ENGINE.SceneNode {
     this.logoEl = logo;
 
     this.playBtn = this.makeButton('Play', () => this.startGame());
+    // Co-op: matchmaking pairs two hunters on a shared server (published game, signed-in players).
+    this.coopBtn = this.makeButton('Hunt Together', () => this.toggleCoopSearch());
     this.howBtn = this.makeButton('How to Play', () => this.showHowTo());
+    // Matchmaking status / error line under the buttons (text only: messages can come from the API).
+    const coopStatus = document.createElement('div');
+    Object.assign(coopStatus.style, {
+      font: '700 18px system-ui, sans-serif', color: '#ffe9c2', minHeight: '24px', maxWidth: '420px',
+      textShadow: '0 2px 4px rgba(0,0,0,0.7)', marginTop: '4px',
+    } as CSSStyleDeclaration);
+    this.coopStatus = coopStatus;
 
     // Text-only Back link, shown only while the How-to-Play panel is open.
     const back = document.createElement('div');
@@ -88,7 +97,7 @@ export class MainMenuNode extends ENGINE.SceneNode {
     back.addEventListener('click', () => { Sfx.play('uiClick', 0.8); this.hideHowTo(); });
     this.backBtn = back;
 
-    root.append(logo, this.playBtn, this.howBtn, this.buildHowTo(), back);
+    root.append(logo, this.playBtn, this.coopBtn, this.howBtn, coopStatus, this.buildHowTo(), back);
 
     // Studio logo — pinned top-right, independent of the menu's flex flow (absolute), so opening
     // How-to-Play never moves it. Clicking opens the studio's X page in a new tab.
@@ -118,6 +127,9 @@ export class MainMenuNode extends ENGINE.SceneNode {
   }
 
   private playBtn: HTMLElement | null = null;
+  private coopBtn: HTMLElement | null = null;
+  private coopStatus: HTMLElement | null = null;
+  private searching = false;
   private howBtn: HTMLElement | null = null;
   private backBtn: HTMLElement | null = null;
   private logoEl: HTMLElement | null = null;
@@ -167,6 +179,7 @@ export class MainMenuNode extends ENGINE.SceneNode {
       ['2. Loot', 'Each kill drops meat, pelts and rare parts — grab them off the ground with F.'],
       ['3. Sell', 'Bring your loot to the merchant and sell it for gold.'],
       ['4. Upgrade', 'Spend gold at the gear shop on stronger weapons, arrows and potions — then hunt bigger prey.'],
+      ['Co-op', 'Hunt Together pairs you with a partner. Gang up on boars and bears — a provoked animal goes after whoever hit it. Loot goes to whoever grabs it first.'],
     ];
     for (const [k, d] of steps) {
       const r = document.createElement('div');
@@ -247,6 +260,8 @@ export class MainMenuNode extends ENGINE.SceneNode {
     // Logo hidden → centre the panel instead of leaving it pinned top-left.
     if (this.root) Object.assign(this.root.style, { alignItems: 'center', justifyContent: 'center', paddingLeft: '0', paddingTop: '0' } as CSSStyleDeclaration);
     if (this.playBtn) this.playBtn.style.display = 'none';
+    if (this.coopBtn) this.coopBtn.style.display = 'none';
+    if (this.coopStatus) this.coopStatus.style.display = 'none';
     if (this.howBtn) this.howBtn.style.display = 'none';
     if (this.howToPanel) this.howToPanel.style.display = 'flex';
     this.setHowToPage(0); // always open on The Hunt
@@ -258,13 +273,59 @@ export class MainMenuNode extends ENGINE.SceneNode {
     // Restore the left/top-anchored title-screen layout.
     if (this.root) Object.assign(this.root.style, { alignItems: 'flex-start', justifyContent: 'flex-start', paddingLeft: 'clamp(48px, 8vw, 130px)', paddingTop: 'clamp(40px, 9vh, 120px)' } as CSSStyleDeclaration);
     if (this.playBtn) this.playBtn.style.display = 'flex';
+    if (this.coopBtn) this.coopBtn.style.display = 'flex';
+    if (this.coopStatus) this.coopStatus.style.display = 'block';
     if (this.howBtn) this.howBtn.style.display = 'flex';
     if (this.howToPanel) this.howToPanel.style.display = 'none';
     if (this.backBtn) this.backBtn.style.display = 'none';
   }
 
+  /** Hunt Together: queue for a 2-hunter co-op match, or cancel the search in progress. */
+  private toggleCoopSearch(): void {
+    const gameLoop = this.getWorld()?.gameLoop;
+    if (!gameLoop || this.transitioning) return;
+    if (this.searching) {
+      void gameLoop.cancelMatch().catch(() => { /* already over */ });
+      return;
+    }
+    this.searching = true;
+    this.setCoopLabel('Cancel');
+    this.setCoopStatus('Looking for a hunting partner...');
+    gameLoop.findMatch({
+      queueId: 'solo-1v1', // two players per match: a co-op hunting duo
+      onStatus: (status) => {
+        if (status === 'PLACING') this.setCoopStatus('Partner found! Opening the hunting grounds...');
+      },
+    }).then(() => {
+      // Connected: the server loads the hunting level and this menu leaves play with it.
+      this.transitioning = true;
+      this.root?.remove();
+      this.root = null;
+      const gc = this.getWorld()?.gameContainer;
+      if (gc) LoadingScreen.show(gc); // stays up until the game pawn finishes preloading
+    }).catch((e: unknown) => {
+      this.searching = false;
+      this.setCoopLabel('Hunt Together');
+      if (e instanceof ENGINE.MatchmakingError && e.aborted) {
+        this.setCoopStatus('');
+        return;
+      }
+      console.warn('[MainMenu] matchmaking failed', e);
+      this.setCoopStatus('Co-op is not available here. Play the published game while signed in, or hunt solo with Play.');
+    });
+  }
+
+  private setCoopStatus(text: string): void {
+    if (this.coopStatus) this.coopStatus.textContent = text;
+  }
+
+  private setCoopLabel(text: string): void {
+    if (this.coopBtn) this.coopBtn.textContent = text; // the button's only content is its label
+  }
+
   private startGame(): void {
     if (this.transitioning) return;
+    if (this.searching) void this.getWorld()?.gameLoop?.cancelMatch().catch(() => { /* already over */ });
     this.transitioning = true;
     this.root?.remove();
     this.root = null;

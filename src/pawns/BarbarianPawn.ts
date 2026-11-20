@@ -21,7 +21,7 @@ import * as ENGINE from '@gnsx/genesys.js';
 import { WaterNode } from '../nodes/WaterNode.js';
 import { WildAnimal } from '../animals/WildAnimal.js';
 import { LootDrop } from '../nodes/LootDrop.js';
-import type { DropItem } from '../data/animals.js';
+import { DROP_ITEMS, type DropItem } from '../data/animals.js';
 import { WEAPONS, ARROW, ARROW_ITEM, BAREHAND_DAMAGE, type WeaponDef, type RangedStats } from '../data/weapons.js';
 import { POTIONS, POTION_GRIP, type PotionEffect } from '../data/potions.js';
 import { ArrowProjectile } from '../nodes/ArrowProjectile.js';
@@ -46,9 +46,11 @@ import { FadingText } from '../ui/FadingText.js';
 import { LoadingScreen } from '../ui/LoadingScreen.js';
 import { preloadGameAssets } from '../systems/preloadGameAssets.js';
 import { getSettings } from '../systems/GameSettings.js';
+import { isAuthority, isOnline } from '../systems/Net.js';
 import { Sfx } from '../systems/Sfx.js';
 import { RUN_DUST, BURST_DUST, DASH_DUST } from '../vfx/DustVfx.js';
 import { WeaponTrailNode } from '../vfx/WeaponTrailNode.js';
+import { MENU_SCENE_URL } from '../data/scenes.js';
 
 /** Target size + palm offset/rotation for a model held in the hand socket (potions, loot). */
 type HeldGrip = { size: number; offsetPos: readonly [number, number, number]; offsetRot: readonly [number, number, number] };
@@ -227,8 +229,27 @@ function shortestAngle(a: number, b: number): number {
   return d;
 }
 
+/** Highest damage a single hit may claim (strongest weapon with a damage potion), for server checks. */
+function maxHitDamage(): number {
+  let best = Math.max(BAREHAND_DAMAGE, ARROW.damage);
+  for (const w of Object.values(WEAPONS)) best = Math.max(best, w.damage ?? 0);
+  return best * 2;
+}
+
 @ENGINE.GameClass()
 export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
+
+  // ---- co-op replicated state: written on the server, shown on the OTHER players' screens ----
+  /** Weapon in hand ('' = bare hands). */
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'string', replicateTo: 'non-owner' } })
+  public netEquippedId: string = '';
+  /** Aiming a ranged weapon (upper-body aim pose). */
+  @ENGINE.property({ replicate: true, transient: true, net: { netType: 'bool', replicateTo: 'non-owner' } })
+  public netAiming: boolean = false;
+  // Owner: last values sent to the server, so they are sent on change only.
+  private sentMaxSpeed = -1;
+  private sentSpeedModifier = -1;
+  private sentAiming = false;
 
   // Movement intent captured from the controller (relative to the camera).
   private inForward = 0;
@@ -574,7 +595,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       if (this.shopOpen || this.backpackOpen) return false; // ignore gameplay keys while a menu is open
       if (e.code === PICKUP_KEY) {
         this.pickupPulse = 2;             // play the pickup gesture
-        this.nearestLoot()?.pickUp();     // grab any loot right at the player's feet
+        const loot = this.nearestLoot();  // grab any loot right at the player's feet
+        if (loot) this.serverPickup(loot.lootId);
       } else if (e.code === DASH_KEY) {
         this.triggerDodge();     // tap Q = dash burst
       } else if (SPRINT_KEYS.includes(e.code)) {
@@ -593,8 +615,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     });
 
     // Hotbar HUD (slot 1 = dagger). Starts barehand (nothing selected).
+    // HUD, menus, save data and the loading screen belong to the player on THIS screen only: other
+    // players' pawns (and the headless co-op server) skip them.
     const gc = this.getWorld()?.gameContainer;
-    if (gc) {
+    if (gc && this.isLocalOwner()) {
       void installGameFont(gc); // apply the custom Trimen font to all game UI
       // Hotbar is its own small inventory (4 slots) so items can be dragged between it and the
       // backpack. Slot 1 starts with the dagger. Selecting a slot equips whatever item sits in it.
@@ -672,8 +696,6 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       LoadingScreen.show(gc);
       void preloadGameAssets().finally(() => { this.preloading = false; LoadingScreen.hide(); });
     }
-    // Loot now bursts out physically on death; grant it to the backpack when the player picks it up.
-    LootDrop.onPickup = (item) => this.onLootPickup(item);
     return true;
   }
 
@@ -701,7 +723,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private openPause(): void {
     if (this.paused || this.isDead || this.shopOpen || this.backpackOpen || this.preloading) return;
     this.paused = true;
-    this.getWorld()?.consoleManager?.executeConsoleCommand('pause');
+    // Solo freezes the world. Co-op cannot (the hunt goes on for the other player); the pause flag
+    // still roots this player in place while the menu is open.
+    if (!isOnline()) this.getWorld()?.consoleManager?.executeConsoleCommand('pause');
     this.pauseMenu?.show();
     this.setCursorFree(true);
     Sfx.play('uiOpen', 0.7);
@@ -710,7 +734,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   private closePause(): void {
     if (!this.paused) return;
     this.paused = false;
-    this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // toggle back to running
+    if (!isOnline()) this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // toggle back to running
     this.pauseMenu?.hide();
     this.setCursorFree(false);
     Sfx.play('uiClose', 0.7);
@@ -718,13 +742,16 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
   /** Leave the game and return to the main-menu scene. */
   private gotoMainMenu(): void {
-    if (this.paused) this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // unfreeze before the switch
+    if (this.paused && !isOnline()) this.getWorld()?.consoleManager?.executeConsoleCommand('pause'); // unfreeze before the switch
     this.paused = false;
     // Cover the scene swap so the raw menu-backdrop map isn't shown before the menu overlay/camera
     // are up — MainMenuNode hides this once it has built.
     const gc = this.getWorld()?.gameContainer;
     if (gc) LoadingScreen.show(gc);
-    void this.getWorld()?.gameLoop?.openLevel('@project/assets/mainmenu.genesys-scene');
+    const gameLoop = this.getWorld()?.gameLoop;
+    // Co-op: leave the server; disconnecting reloads the project's start scene (the title menu).
+    if (ENGINE.NetRuntime.isClient()) void gameLoop?.disconnectFromServer();
+    else void gameLoop?.openLevel(MENU_SCENE_URL);
   }
 
   /** Refresh the status HUD: arrow count + active potion-effect countdowns. */
@@ -766,7 +793,6 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
   public override endPlay(): boolean {
     if (!super.endPlay()) return false;
-    LootDrop.onPickup = null; // drop the pickup hook (avoid a dangling pawn ref)
     this.hotbar?.dispose();
     this.hotbar = null;
     this.healthBar?.dispose();
@@ -810,19 +836,48 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   // Health / death / respawn
   //====================================================================================================
 
-  /** Apply damage. Reaching 0 health kills the pawn. `knockFrom` = the attacker's position (throws
-   *  the pawn back away from it). */
+  /**
+   * Server / solo: apply damage. Reaching 0 health kills the pawn. `knockFrom` = the attacker's
+   * position (throws the pawn back away from it). The owning player is told so their screen shows the
+   * hit, the knockback and, at 0 health, the death fade. Calls on a client are ignored.
+   */
   public takeDamage(amount: number, knockFrom?: THREE.Vector3, knockForce?: number): void {
-    if (this.isDead || amount <= 0) return;
+    if (!this.hasAuthority() || this.isDead || amount <= 0) return;
     this.health = Math.max(0, this.health - amount);
-    this.healthBar?.setHealth(this.health, MAX_HEALTH);
-    if (this.health > 0) Sfx.playRandom(['playerHurt1', 'playerHurt2', 'playerHurt3', 'playerHurt4', 'playerHurt5'], 0.8);
+    // Co-op server state: animals stop targeting this player until it respawns. (Solo: die() sets it.)
+    if (this.health <= 0 && isOnline()) this.isDead = true;
+    let dx = 0;
+    let dz = 0;
     if (knockFrom) {
       const dir = this.getWorldPosition(new THREE.Vector3()).sub(knockFrom);
-      dir.y = 0;
-      this.applyKnockback(dir, knockForce);
+      dx = dir.x;
+      dz = dir.z;
     }
+    const force = knockForce ?? -1;
+    if (isOnline()) this.clientOnDamaged(this.health, dx, dz, force);
+    else this.onDamaged(this.health, dx, dz, force);
+  }
+
+  /** Owner: show a hit the server applied (health bar, hurt sound, knockback, death at 0). */
+  private onDamaged(health: number, dx: number, dz: number, force: number): void {
+    if (this.isDead) return; // already fading out
+    this.health = health;
+    this.healthBar?.setHealth(this.health, MAX_HEALTH);
+    if (this.health > 0) Sfx.playRandom(['playerHurt1', 'playerHurt2', 'playerHurt3', 'playerHurt4', 'playerHurt5'], 0.8);
+    if (dx !== 0 || dz !== 0) this.applyKnockback(new THREE.Vector3(dx, 0, dz), force >= 0 ? force : undefined);
     if (this.health <= 0) this.die();
+  }
+
+  @ENGINE.ClientRPC({
+    params: [
+      { netType: 'float', quantization: { mode: 'scale', scale: 10 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 100 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 100 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 10 } },
+    ],
+  })
+  public clientOnDamaged(health: number, dx: number, dz: number, force: number): void {
+    this.onDamaged(health, dx, dz, force);
   }
 
   /**
@@ -836,7 +891,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.knockbackTimer = KNOCKBACK_DURATION;
   }
 
-  /** Kill the pawn: freeze, black fade, then respawn at the last safe ground. */
+  /** Owner: kill the pawn on screen: freeze, black fade, then ask the server to respawn it. */
   public die(): void {
     if (this.isDead) return;
     Sfx.play('playerDie', 0.9);
@@ -850,8 +905,17 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   }
 
   /** Teleport back to the ORIGINAL spawn point and restore full health (called at full black).
-   *  Respawning at the start (not the last safe spot) makes death costly — a real setback. */
+   *  Respawning at the start (not the last safe spot) makes death costly — a real setback.
+   *  The owner moves at once (no wait at a black screen); the server's teleport is authoritative. */
   private respawn(): void {
+    this.placeAtSpawn();
+    this.health = MAX_HEALTH;
+    this.healthBar?.setHealth(this.health, MAX_HEALTH);
+    this.isDead = false;
+    this.serverRespawn();
+  }
+
+  private placeAtSpawn(): void {
     const mn = this.movementNode;
     if (mn instanceof ENGINE.CharacterMovementNode) {
       mn.setVelocities(0, 0, 0);
@@ -859,9 +923,234 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       pos.y += RESPAWN_Y_OFFSET;
       mn.setPawnWorldTransform({ position: pos });
     }
+  }
+
+  /** Server: respawn a dead player at the spawn point with full health. */
+  @ENGINE.ServerRPC()
+  public serverRespawn(): void {
+    if (isOnline()) this.placeAtSpawn(); // solo already moved in respawn()
     this.health = MAX_HEALTH;
-    this.healthBar?.setHealth(this.health, MAX_HEALTH);
     this.isDead = false;
+    this.healTimer = 0;
+  }
+
+  /** Server / solo: the pawn sank into the deadly water. */
+  private killByWater(): void {
+    if (this.isDead) return;
+    this.health = 0;
+    if (isOnline()) this.isDead = true; // solo: die() sets it
+    if (isOnline()) this.clientOnDamaged(0, 0, 0, -1);
+    else this.onDamaged(0, 0, 0, -1);
+  }
+
+  //====================================================================================================
+  // Co-op: requests to the server and what the other players see
+  //====================================================================================================
+
+  /** True for the pawn the player on THIS screen controls (solo, or their own pawn in co-op). */
+  private isLocalOwner(): boolean {
+    return !ENGINE.NetRuntime.isHeadless() && this.isOwnedByLocalClient();
+  }
+
+  /** Server: hand a loot drop to this player if it is still there and within reach. */
+  @ENGINE.ServerRPC({ params: [{ netType: 'uint' }] })
+  public serverPickup(lootId: number): void {
+    const drop = LootDrop.findById(lootId);
+    if (!drop || this.isDead) return;
+    const p = this.getWorldPosition(new THREE.Vector3());
+    const c = drop.getPickupPosition(new THREE.Vector3());
+    if (c.distanceTo(p) > LOOT_PICKUP_RANGE * 3) return; // allow for latency, refuse far grabs
+    const item = drop.take();
+    if (!item) return; // another player got it first
+    if (isOnline()) this.clientGrantLoot(item.id);
+    else this.onLootPickup(item);
+  }
+
+  @ENGINE.ClientRPC()
+  public clientGrantLoot(itemId: string): void {
+    const item = DROP_ITEMS[itemId];
+    if (item) this.onLootPickup(item);
+  }
+
+  /** Damage of the current melee swing (weapon x potion buff). */
+  private currentMeleeDamage(): number {
+    const baseDmg = (this.equippedId ? WEAPONS[this.equippedId]?.damage : BAREHAND_DAMAGE) ?? BAREHAND_DAMAGE;
+    return baseDmg * this.damageMult;
+  }
+
+  /** Server: land a melee swing from this pawn's server-side position and facing. */
+  @ENGINE.ServerRPC({ params: [{ netType: 'float', quantization: { mode: 'scale', scale: 10 } }] })
+  public serverMelee(damage: number): void {
+    if (this.isDead) return;
+    this.meleeHitScan(Math.min(Math.max(0, damage), maxHitDamage()));
+  }
+
+  /** Server: show this player's swing / shot animation on everyone else's screen. */
+  @ENGINE.ServerRPC({ params: [{ netType: 'uint' }] })
+  public serverAttackFx(comboStep: number): void {
+    this.mcAttackFx(comboStep);
+  }
+
+  @ENGINE.MulticastRPC({ params: [{ netType: 'uint' }] })
+  public mcAttackFx(comboStep: number): void {
+    if (this.isLocalOwner()) return; // the shooter already animated it locally
+    this.comboStep = comboStep;
+    this.attackPulse = 2;
+    if (!this.isRanged()) {
+      const pos = this.getWorldPosition(new THREE.Vector3());
+      if (!this.armed) Sfx.play3d('punch', pos, 0.6);
+      else if (this.isTwoHand()) Sfx.play3d(comboStep === 3 ? 'axe360' : 'axe', pos, 0.6);
+      else Sfx.play3d(comboStep % 2 === 1 ? 'dagger1' : 'dagger2', pos, 0.6);
+    }
+  }
+
+  /** Server: relay an arrow so every player sees it; the server's copy deals the damage. */
+  @ENGINE.ServerRPC({
+    params: [
+      { netType: 'vector3', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'vector3', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 10 } },
+    ],
+  })
+  public serverFireArrow(origin: THREE.Vector3, velocity: THREE.Vector3, gravity: number, maxDistance: number, damage: number): void {
+    if (this.isDead) return;
+    // The arrow must start near this pawn (no shots from across the map).
+    if (origin.distanceTo(this.getWorldPosition(new THREE.Vector3())) > 3) return;
+    this.mcFireArrow(origin, velocity, gravity, maxDistance, Math.min(Math.max(0, damage), maxHitDamage()));
+  }
+
+  @ENGINE.MulticastRPC({
+    params: [
+      { netType: 'vector3', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'vector3', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 10 } },
+    ],
+  })
+  public mcFireArrow(origin: THREE.Vector3, velocity: THREE.Vector3, gravity: number, maxDistance: number, damage: number): void {
+    if (this.isLocalOwner()) return; // the shooter already flies its own copy
+    if (!ENGINE.NetRuntime.isHeadless()) Sfx.play3d('bowFire', origin, 0.7);
+    this.spawnArrowLocal(origin, velocity, gravity, maxDistance, damage);
+  }
+
+  /** Fly one arrow on this machine (damage only counts where this machine is the authority). */
+  private spawnArrowLocal(origin: THREE.Vector3, velocity: THREE.Vector3, gravity: number, maxDistance: number, damage: number): void {
+    const world = this.getWorld();
+    if (!world) return;
+    const arrow = ArrowProjectile.create({ name: 'Arrow' }) as ArrowProjectile;
+    arrow.position.copy(origin);
+    world.add(arrow);
+    arrow.launch({
+      modelUrl: ARROW.url,
+      material: ARROW.material,
+      modelScale: ARROW.scale * CHARACTER_SCALE,
+      velocity: velocity.clone(),
+      gravity,
+      maxDistance,
+      damage,
+      ignoreRoot: this,
+    });
+  }
+
+  /** Server: the weapon this player now holds (shown in their hand on other screens). */
+  @ENGINE.ServerRPC()
+  public serverSetEquipped(id: string): void {
+    const next = id && WEAPONS[id] ? id : '';
+    this.netEquippedId = next;
+    this.showEquipped(next || null);
+  }
+
+  /** Other players: the server reported a weapon change. */
+  public onRepNetEquippedId(): void {
+    this.showEquipped(this.netEquippedId || null);
+  }
+
+  /** Put a weapon (or bare hands) in this pawn's hand, presentation only. */
+  private showEquipped(id: string | null): void {
+    this.equippedId = id;
+    this.armed = id !== null;
+    this.applyWeapon();
+  }
+
+  /** Server: aim pose on/off. */
+  @ENGINE.ServerRPC()
+  public serverSetAiming(aiming: boolean): void {
+    this.netAiming = aiming;
+  }
+
+  /**
+   * Server: the owner's current speed cap and speed modifier (sprint, speed potion, dash, aim,
+   * knockback). The server simulates the same movement from the owner's inputs, so it needs the same
+   * numbers or it would keep pulling the player back. Clamped to sane bounds.
+   */
+  @ENGINE.ServerRPC({
+    params: [
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+      { netType: 'float', quantization: { mode: 'scale', scale: 1000 } },
+    ],
+  })
+  public serverSetMoveTuning(maxSpeed: number, speedModifier: number): void {
+    const mn = this.movementNode;
+    if (!(mn instanceof ENGINE.CharacterMovementNode) || this.baseMaxSpeed <= 0) return;
+    mn.maxSpeed = THREE.MathUtils.clamp(maxSpeed, 0, this.baseMaxSpeed * 1.4 * SPRINT_MULT);
+    mn.speedModifier = THREE.MathUtils.clamp(speedModifier, 0, 20);
+  }
+
+  /** Server: a heal potion was drunk; heal over time here too so the server's health matches. */
+  @ENGINE.ServerRPC()
+  public serverStartHeal(): void {
+    if (!this.isDead) this.healTimer = HEAL_DURATION;
+  }
+
+  /** Owner, co-op: send movement tuning / aim changes to the server (on change only). */
+  private syncToServer(): void {
+    if (!isOnline()) return;
+    const mn = this.movementNode;
+    if (mn instanceof ENGINE.CharacterMovementNode
+      && (Math.abs(mn.maxSpeed - this.sentMaxSpeed) > 1e-4 || Math.abs(mn.speedModifier - this.sentSpeedModifier) > 1e-4)) {
+      this.sentMaxSpeed = mn.maxSpeed;
+      this.sentSpeedModifier = mn.speedModifier;
+      this.serverSetMoveTuning(mn.maxSpeed, mn.speedModifier);
+    }
+    if (this.aiming !== this.sentAiming) {
+      this.sentAiming = this.aiming;
+      this.serverSetAiming(this.aiming);
+    }
+  }
+
+  /**
+   * Tick for a pawn this screen does not control: another player's pawn on a client, or any pawn on
+   * the co-op server. Shows the replicated weapon / aim / attack state; the server also checks for
+   * water deaths and runs heal-over-time.
+   */
+  private tickRemote(deltaTime: number): void {
+    if (this.armed && this.equippedId && !this.weaponNodes.has(this.equippedId)) this.applyWeapon();
+    if (this.hasAuthority()) {
+      const bodyY = this.getWorldPosition(this.tmpVec).y;
+      if (!this.isDead && this.waterSurfaceY !== null && bodyY < this.waterSurfaceY - WATER_DEATH_DEPTH) {
+        this.killByWater();
+      }
+      if (this.healTimer > 0) {
+        this.healTimer -= deltaTime;
+        if (!this.isDead) this.health = Math.min(MAX_HEALTH, this.health + HEAL_RATE * deltaTime);
+      }
+    }
+    if (this.animationNode && this.animationNode.isReady()) {
+      this.animationNode.setParameter('armed', this.armed);
+      this.animationNode.setParameter('twoHand', this.isTwoHand());
+      this.animationNode.setParameter('ranged', this.isRanged());
+      this.animationNode.setParameter('aiming', this.netAiming);
+      this.animationNode.setParameter('attack', this.attackPulse > 0);
+      this.animationNode.setParameter('comboStep', this.comboStep);
+      if (this.attackPulse > 0) this.attackPulse--;
+      const st = this.animationNode.getGraphState('base') ?? '';
+      if (!ATTACK_STATES.has(st) && this.attackPulse <= 0) this.comboStep = 0;
+    }
+    // Locomotion blend from the replicated velocities (CharacterPawn), camera rig.
+    super.tickPrePhysics(deltaTime);
   }
 
   //====================================================================================================
@@ -1101,7 +1390,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
   /** Start a potion's TIMED effect: heal-over-time (10s), +40% speed (60s), or 2x damage (30s). */
   private applyPotion(kind: string): void {
-    if (kind === 'heal') this.healTimer = HEAL_DURATION;      // +HEAL_RATE HP/s while active
+    if (kind === 'heal') {
+      this.healTimer = HEAL_DURATION;                         // +HEAL_RATE HP/s while active
+      if (isOnline()) this.serverStartHeal();
+    }
     else if (kind === 'speed') this.speedTimer = SPEED_DURATION;
     else if (kind === 'damage') this.damageTimer = DAMAGE_DURATION;
   }
@@ -1347,10 +1639,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       for (const node of this.potionNodes.values()) node.visible = false;
     }
     if (id !== null) this.hideLoot(); // equipping a real weapon puts loot away (bare-hands keeps it for holdLoot)
-    this.equippedId = id;
-    this.armed = id !== null;
-    this.applyWeapon();
+    this.showEquipped(id);
     this.seedWeaponTuner();
+    if (isOnline()) this.serverSetEquipped(id ?? '');
   }
 
   /** Seed the dev weapon tuner from the equipped weapon's current registry values. */
@@ -1551,6 +1842,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       return; // combo maxed — ignore until it resets
     }
     this.attackPulse = 2;
+    if (isOnline()) this.serverAttackFx(this.comboStep); // other players see the swing / shot
     if (ranged) {
       this.fireArrow(); // launch the projectile at the current charge
       const rs = this.rangedStats();
@@ -1574,11 +1866,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     }
   }
 
-  /** Strike every living animal in a frontal arc within melee reach (proximity, no physics body). */
-  private meleeHitScan(): void {
-    if (WildAnimal.alive.length === 0) return;
-    const baseDmg = (this.equippedId ? WEAPONS[this.equippedId]?.damage : BAREHAND_DAMAGE) ?? BAREHAND_DAMAGE;
-    const dmg = baseDmg * this.damageMult;
+  /**
+   * Server / solo: strike every living animal in a frontal arc within melee reach (proximity, no
+   * physics body). The animal plays the hit sound itself on every machine.
+   */
+  private meleeHitScan(dmg: number): void {
+    if (!isAuthority() || WildAnimal.alive.length === 0) return;
     const origin = this.getWorldPosition(this.tmpVec);
     const fwd = this.forwardDirection();
     const c = new THREE.Vector3();
@@ -1591,8 +1884,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       const dist = to.length();
       if (dist > MELEE_REACH + animal.getHitRadius()) continue;
       if (dist > 1e-4 && to.normalize().dot(fwd) < MELEE_FRONT_DOT) continue; // behind the pawn — miss
-      animal.takeDamage(dmg);
-      Sfx.play3d('hitAnimal', c, 0.7); // melee connect (crunch)
+      animal.takeDamage(dmg, this);
     }
   }
 
@@ -1670,19 +1962,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     const maxDist = rs?.maxDistance ?? ARROW.maxDistance;
     if (rs) this.applySpread(dir, rs.maxSpreadDeg * (1 - this.charge01));
 
-    const arrow = ArrowProjectile.create({ name: 'Arrow' }) as ArrowProjectile;
-    arrow.position.copy(spawnPos);
-    world.add(arrow);
-    arrow.launch({
-      modelUrl: ARROW.url,
-      material: ARROW.material,
-      modelScale: ARROW.scale * CHARACTER_SCALE,
-      velocity: dir.multiplyScalar(speed * CHARACTER_SCALE),
-      gravity: gravity * CHARACTER_SCALE,
-      maxDistance: maxDist * CHARACTER_SCALE,
-      damage: ((this.equippedId ? WEAPONS[this.equippedId]?.damage : undefined) ?? ARROW.damage) * this.damageMult,
-      ignoreRoot: this,
-    });
+    const velocity = dir.multiplyScalar(speed * CHARACTER_SCALE);
+    const damage = ((this.equippedId ? WEAPONS[this.equippedId]?.damage : undefined) ?? ARROW.damage) * this.damageMult;
+    // Fly it here at once (no lag for the shooter); in co-op the server relays it to everyone and
+    // its own copy is the one that deals the damage.
+    this.spawnArrowLocal(spawnPos, velocity, gravity * CHARACTER_SCALE, maxDist * CHARACTER_SCALE, damage);
+    if (isOnline()) this.serverFireArrow(spawnPos, velocity, gravity * CHARACTER_SCALE, maxDist * CHARACTER_SCALE, damage);
   }
 
   /** Randomly deflect a unit direction within a cone of `spreadDeg` half-angle (0 = no deflection). */
@@ -1881,7 +2166,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   public override tickPostPhysics(deltaTime: number): void {
     super.tickPostPhysics(deltaTime);
     this.applyTorsoAim();
-    this.clampCameraAboveGround();
+    if (this.isLocalOwner()) this.clampCameraAboveGround();
   }
 
   /**
@@ -1915,6 +2200,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   //====================================================================================================
 
   public override tickPrePhysics(deltaTime: number): void {
+    if (!this.isLocalOwner()) {
+      this.tickRemote(deltaTime);
+      return;
+    }
     if (!this.camInitialized) {
       this.camYaw = this.rotation.y;
       this.camPitch = this.cameraPivot ? this.cameraPivot.rotation.x : 0;
@@ -1944,7 +2233,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       this.meleeStrikeTimer -= deltaTime;
       if (this.meleeStrikeTimer <= 0) {
         this.meleeStrikeTimer = -1;
-        if (!this.isDead && !this.drinking) this.meleeHitScan();
+        if (!this.isDead && !this.drinking) this.serverMelee(this.currentMeleeDamage());
       }
     }
 
@@ -1976,8 +2265,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
         const len = Math.hypot(dx, dz);
         if (len > 0.05) this.lastSafeDir.set(dx / len, 0, dz / len);
       }
-      if (this.waterSurfaceY !== null && bodyY < this.waterSurfaceY - WATER_DEATH_DEPTH) {
-        this.die();
+      // Solo decides the water death here; in co-op the server's copy of this pawn does (tickRemote).
+      if (this.waterSurfaceY !== null && bodyY < this.waterSurfaceY - WATER_DEATH_DEPTH && this.hasAuthority()) {
+        this.killByWater();
       }
     }
 
@@ -2012,7 +2302,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       // base locomotion blendspace plays the matching strafe clip. The upper body aim pose comes from
       // the masked aim layer, and the torso pitch bend follows the aim up/down.
       const diff = shortestAngle(this.rotation.y, this.camYaw);
-      this.rotation.y += THREE.MathUtils.clamp(diff, -AIM_TURN_RATE * deltaTime, AIM_TURN_RATE * deltaTime);
+      const aimTurn = THREE.MathUtils.clamp(diff, -AIM_TURN_RATE * deltaTime, AIM_TURN_RATE * deltaTime);
       const camQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, this.camYaw, 0, 'YXZ'));
       const camFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
       const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camQuat);
@@ -2023,7 +2313,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       const charRight = this.rightDirection();
       mn.addForwardInput(THREE.MathUtils.clamp(worldDir.dot(charFwd), -1, 1) * AIM_SPEED_MULT);
       mn.addRightInput(THREE.MathUtils.clamp(worldDir.dot(charRight), -1, 1) * AIM_SPEED_MULT);
-      mn.addLookRightInput(0);
+      this.addTurnInput(mn, aimTurn);
     } else if (mn && inDodge) {
       // Input-driven dash: temporarily raise the movement speed cap and feed a decaying
       // directional input. Staying input-driven keeps client prediction/reconciliation
@@ -2057,6 +2347,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       mn.addRightInput(0);
       mn.addLookRightInput(0);
     } else if (mn) {
+      let turn = 0;
       const mag = Math.min(1, Math.hypot(this.inForward, this.inRight));
       if (mag > 0.01) {
         // Desired world direction = camera basis applied to the input vector.
@@ -2072,8 +2363,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
           const diff = shortestAngle(this.rotation.y, targetYaw);
 
           // Quick pivot toward the target heading.
-          const step = THREE.MathUtils.clamp(diff, -TURN_RATE * deltaTime, TURN_RATE * deltaTime);
-          this.rotation.y += step;
+          turn = THREE.MathUtils.clamp(diff, -TURN_RATE * deltaTime, TURN_RATE * deltaTime);
 
           // Pivot first, run once aligned.
           const align = Math.cos(diff);
@@ -2085,9 +2375,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       } else {
         mn.addForwardInput(0);
       }
-      // We drive heading ourselves — never strafe or self-rotate via look input.
+      // We drive heading ourselves (as a yaw input, so co-op replays it) — never strafe.
       mn.addRightInput(0);
-      mn.addLookRightInput(0);
+      this.addTurnInput(mn, turn);
     }
 
     // Restore the normal speed cap the moment the dodge ends.
@@ -2159,6 +2449,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.updateCharge(deltaTime);
     // Aim trajectory preview (uses the camera yaw/pitch just refreshed by updateCamera).
     this.updateTrajectory();
+    this.syncToServer();
 
     // Interaction prompt: a kill loot-toast takes priority, else the nearest interactable's prompt
     // (both hidden while dead or shopping).
@@ -2217,6 +2508,18 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       const st = this.animationNode.getGraphState('base') ?? '';
       if (!ATTACK_STATES.has(st) && this.attackPulse <= 0) this.comboStep = 0;
     }
+  }
+
+  /**
+   * Turn the body by `yawDelta` radians through the movement node instead of writing rotation.y, so
+   * the turn is part of the input the co-op server replays (otherwise the server would keep the old
+   * heading and pull the player back). Absolute look input rotates by value * lookRightSpeed, and a
+   * positive look-right turns clockwise (negative yaw).
+   */
+  private addTurnInput(mn: ENGINE.BasePawnMovementNode, yawDelta: number): void {
+    const speed = mn instanceof ENGINE.CharacterMovementNode ? mn.lookRightSpeed : 0;
+    if (speed > 0 && yawDelta !== 0) mn.addLookRightInput(-yawDelta / speed, true);
+    else mn.addLookRightInput(0);
   }
 
   //====================================================================================================

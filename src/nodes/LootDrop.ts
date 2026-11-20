@@ -3,12 +3,19 @@
  * (no rigidbody — so it can never slide, fly off, or float). It spawns right at the death point with
  * only a tiny spread, settles its base onto the terrain (via a downward raycast), and holds there.
  *
- * Pickup is pawn-driven: near the drop it shows "F to pick up <name>"; F grants it to the backpack
- * and despawns the drop.
+ * Pickup is pawn-driven: near the drop it shows "F to pick up <name>"; F asks the server, which
+ * grants it to that player's backpack and despawns the drop for everyone.
+ *
+ * Co-op: drops are spawned by the server through HuntSpawner, so every player sees the same drops
+ * and each one can be taken exactly once. Solo play runs the same path locally.
  */
 
 import * as ENGINE from '@gnsx/genesys.js';
 import * as THREE from 'three';
+
+import { isAuthority } from '../systems/Net.js';
+
+import { HuntSpawner } from './HuntSpawner.js';
 
 import type { DropItem } from '../data/animals.js';
 
@@ -23,10 +30,12 @@ const DESPAWN_AFTER = 120; // seconds before uncollected loot clears
 export class LootDrop extends ENGINE.SceneNode {
   /** All live drops — the pawn scans these for the nearest pickup. */
   public static readonly all: LootDrop[] = [];
-  /** Granted to the player on pickup (the pawn subscribes to add it to the backpack). */
-  public static onPickup: ((item: DropItem) => void) | null = null;
+  /** Next server-assigned loot id (server / solo only). */
+  private static nextLootId = 1;
 
   public item: DropItem | null = null;
+  /** Server-assigned id; a player's pickup request names the drop by it. */
+  public lootId = 0;
   private visual: ENGINE.ModelMeshNode | null = null;
   private restY = 0;
   private popT = 0;
@@ -38,20 +47,40 @@ export class LootDrop extends ENGINE.SceneNode {
   constructor() {
     super();
     this.canEverTick = true;
+    // Its own replicated entity, spawned by HuntSpawner on the server and mirrored on clients.
+    this.isRoot = true;
+    this.replicated = true;
   }
 
-  /** Spawn one drop per item, right at the death point with only a small spread. */
+  /** Build (not add) a drop; HuntSpawner adds it to the world on the server and on every client. */
+  public static fromItem(lootId: number, item: DropItem, x: number, y: number, z: number): LootDrop {
+    const drop = LootDrop.create({ name: `Loot_${lootId}` }) as LootDrop;
+    drop.lootId = lootId;
+    drop.item = item;
+    // NOTE: do NOT rotate the node — the visual is centered on the node using world-space offsets,
+    // and a node rotation would misalign the model from the node's (pickup) position.
+    drop.position.set(x, y, z);
+    return drop;
+  }
+
+  /**
+   * Spawn one drop per item, right at the death point with only a small spread. Server / solo only:
+   * the server picks the random spread so every player sees the drops in the same places.
+   */
   public static spawnBurst(world: ENGINE.World, x: number, y: number, z: number, items: DropItem[]): void {
+    if (!isAuthority()) return;
+    const spawner = HuntSpawner.find(world);
+    if (!spawner) return;
     for (const item of items) {
       const ang = Math.random() * Math.PI * 2;
       const r = SPREAD_MIN + Math.random() * (SPREAD - SPREAD_MIN); // ring: never bunched at the centre
-      const drop = LootDrop.create({ name: `Loot_${item.id}` }) as LootDrop;
-      drop.item = item;
-      drop.position.set(x + Math.cos(ang) * r, y + 0.2, z + Math.sin(ang) * r);
-      // NOTE: do NOT rotate the node — the visual is centered on the node using world-space offsets,
-      // and a node rotation would misalign the model from the node's (pickup) position.
-      world.add(drop);
+      void spawner.spawnLoot(LootDrop.nextLootId++, item.id, x + Math.cos(ang) * r, y + 0.2, z + Math.sin(ang) * r);
     }
+  }
+
+  /** The live drop with this id, or null (already taken or despawned). */
+  public static findById(lootId: number): LootDrop | null {
+    return LootDrop.all.find((d) => d.lootId === lootId && !d.taken) ?? null;
   }
 
   public override beginPlay(): boolean {
@@ -135,14 +164,23 @@ export class LootDrop extends ENGINE.SceneNode {
     return this.getWorldPosition(out);
   }
 
-  /** Grant the item and despawn immediately (removed from the scan list first so the prompt clears). */
-  public pickUp(): void {
-    if (this.taken || !this.item) return;
+  /**
+   * Server / solo: mark taken and despawn for everyone. Returns the item to grant, or null when the
+   * drop was already taken (two players pressing F on the same drop: only the first one gets it).
+   */
+  public take(): DropItem | null {
+    if (this.taken || !this.item || !isAuthority()) return null;
     this.taken = true;
     const i = LootDrop.all.indexOf(this);
     if (i >= 0) LootDrop.all.splice(i, 1); // gone from the pawn's scan this frame → no lingering prompt
-    LootDrop.onPickup?.(this.item);
-    this.removeFromParent();
+    this.despawn();
+    return this.item;
+  }
+
+  /** Remove this drop on the server and, through the spawner, on every client. */
+  private despawn(): void {
+    const spawner = HuntSpawner.find(this.getWorld());
+    if (!spawner?.despawnInstance(this)) this.removeFromParent();
   }
 
   public override tickPrePhysics(deltaTime: number): void {
@@ -162,7 +200,11 @@ export class LootDrop extends ENGINE.SceneNode {
       }
     }
     this.life += deltaTime;
-    if (this.life >= DESPAWN_AFTER) this.removeFromParent();
+    // Uncollected loot clears after a while; the server decides so it vanishes for everyone at once.
+    if (this.life >= DESPAWN_AFTER && isAuthority()) {
+      this.taken = true;
+      this.despawn();
+    }
   }
 
   public override endPlay(): boolean {
