@@ -489,7 +489,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     // Scale horizontal speed and jump velocity to the pawn size so locomotion stays proportional
     // (a tiny character at the default 5 m/s would look like it's rocketing across the map).
     node.maxSpeed *= CHARACTER_SCALE * 1.4; // +40% base move speed (was +20%; base walk felt too slow)
-    node.jumpSpeed *= CHARACTER_SCALE;
+    // Engine 19 lowered the default jumpSpeed from 20 to 12 m/s; pin the original 20 so the jump
+    // height the map was tuned for is unchanged.
+    node.jumpSpeed = 20 * CHARACTER_SCALE;
     return node as ENGINE.BasePawnMovementNode;
   }
 
@@ -1604,14 +1606,13 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     const far = 140 * CHARACTER_SCALE;
     const physics = this.getPhysicsEngine();
     if (physics) {
-      const hits = physics.performHitTest({
+      const hit = physics.raycast({
         origin: camPos,
         direction: camDir,
         maxDistance: far,
-        stopOnFirstHit: true,
         ignoredRootNodes: [this],
       });
-      if (hits[0]) return out.copy(hits[0].hitLocation);
+      if (hit) return out.copy(hit.hitLocation);
     }
     return out.copy(camPos).addScaledVector(camDir, far);
   }
@@ -1745,15 +1746,14 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       seg.copy(next).sub(cur);
       const segLen = seg.length();
       if (physics && segLen > 1e-5) {
-        const hits = physics.performHitTest({
+        const hit = physics.raycast({
           origin: cur,
           direction: seg.clone().normalize(),
           maxDistance: segLen,
-          stopOnFirstHit: true,
           ignoredRootNodes: [this],
         });
-        if (hits[0]) {
-          points.push(hits[0].hitLocation.clone());
+        if (hit) {
+          points.push(hit.hitLocation.clone());
           break;
         }
       }
@@ -1806,7 +1806,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (this.isDead || this.shopOpen || this.backpackOpen || this.drinking) return;
     if (!this.animationNode?.isReady() || this.dodgeCooldown > 0) return;
     const mn = this.movementNode;
-    if (mn instanceof ENGINE.CharacterMovementNode && !mn.getGrounded()) return; // ground only
+    if (mn instanceof ENGINE.CharacterMovementNode && !mn.isGrounded) return; // ground only
     const st = this.animationNode.getGraphState('base') ?? '';
     if (DODGE_STATES.has(st) || ATTACK_STATES.has(st) || st === 'pickup') return;
     Sfx.play('dash', 0.7);
@@ -1872,7 +1872,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   public override jump(strength: number = 1): void {
     if (this.isDead || this.shopOpen || this.backpackOpen) return;
     const mn = this.movementNode;
-    if (mn instanceof ENGINE.CharacterMovementNode && !mn.getGrounded()) return;
+    if (mn instanceof ENGINE.CharacterMovementNode && !mn.canGroundJump) return;
     this.burstDust?.startEmitting(true); // dust puff on takeoff
     super.jump(strength);
   }
@@ -1897,15 +1897,14 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     this.camera.updateWorldMatrix(true, false); // ensure the spring-arm placement is reflected
     const camPos = this.camera.getWorldPosition(this.tmpVec);
     const up = 8 * CHARACTER_SCALE;
-    const hits = physics.performHitTest({
+    const hit = physics.raycast({
       origin: new THREE.Vector3(camPos.x, camPos.y + up, camPos.z),
       direction: new THREE.Vector3(0, -1, 0),
       maxDistance: up + 40 * CHARACTER_SCALE,
-      stopOnFirstHit: true,
       ignoredRootNodes: [this],
     });
-    if (!hits[0]) return;
-    const floorY = hits[0].hitLocation.y + CAM_GROUND_MARGIN;
+    if (!hit) return;
+    const floorY = hit.hitLocation.y + CAM_GROUND_MARGIN;
     if (camPos.y >= floorY) return;
     // Raise the orbit vertically by the shortfall (applies next frame). Pure up = no zoom.
     this.cameraPivot.position.y += floorY - camPos.y;
@@ -1965,7 +1964,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (mn instanceof ENGINE.CharacterMovementNode && !this.isDead) {
       const bodyY = this.getWorldPosition(this.tmpVec).y;
       const aboveWater = this.waterSurfaceY === null || bodyY > this.waterSurfaceY + WATER_DEATH_DEPTH;
-      if (mn.getGrounded() && aboveWater) {
+      if (mn.isGrounded && aboveWater) {
         this.lastSafeGround.copy(this.tmpVec);
         this.hasSafeGround = true;
         // Remember which way we were heading, so respawn can step back inland (opposite it).
@@ -2099,7 +2098,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
     // Foot dust: loop while moving on the ground, one-shot puff on landing.
     if (mn instanceof ENGINE.CharacterMovementNode && !this.isDead) {
-      const grounded = mn.getGrounded();
+      const grounded = mn.isGrounded;
       const v = mn.getVelocities();
       const planar = Math.hypot(v.forward, v.right);
       const moving = grounded && planar > DUST_MIN_SPEED && !inDodge;

@@ -1,6 +1,6 @@
 {
   "defaultScene": "@project/assets/mainmenu.genesys-scene",
-  "engineVersion": "16.1.21-staging",
+  "engineVersion": "20.0.1",
   "assetCompiler": {
     "enabled": true,
     "compileOnPlay": false,

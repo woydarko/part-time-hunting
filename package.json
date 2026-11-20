@@ -16,15 +16,15 @@
   "packageManager": "pnpm@11.24.0",
   "type": "module",
   "dependencies": {
-    "three": "npm:@gnsx/three@0.185.15",
-    "@gnsx/genesys.js": "16.1.21-staging"
+    "three": "npm:@gnsx/three@0.187.5",
+    "@gnsx/genesys.js": "20.0.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": []
   },
   "devDependencies": {
     "@types/node": "25.9.3",
-    "@types/three": "npm:@gnsx/three-types@0.185.6",
+    "@types/three": "npm:@gnsx/three-types@0.187.3",
     "@typescript-eslint/parser": "8.66.0",
     "@typescript-eslint/utils": "8.66.0",
     "@typescript-eslint/eslint-plugin": "8.66.0",

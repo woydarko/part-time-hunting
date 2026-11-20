@@ -923,14 +923,13 @@ export class WildAnimal extends ENGINE.SceneNode {
     if (!physics) {
       return this.position.y;
     }
-    const hits = physics.performHitTest({
+    const hit = physics.raycast({
       origin: new THREE.Vector3(x, this.position.y + 30, z),
       direction: new THREE.Vector3(0, -1, 0),
       maxDistance: 120,
-      stopOnFirstHit: true,
       ignoredRootNodes: [this],
     });
-    return hits[0] ? hits[0].hitLocation.y : null;
+    return hit ? hit.hitLocation.y : null;
   }
 
   /** Snap the animal onto the ground under it (keeps it from floating/clipping). */

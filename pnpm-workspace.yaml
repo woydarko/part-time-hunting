@@ -10,6 +10,7 @@ publicHoistPattern:
   - 'meshoptimizer'
   - 'node-stdlib-browser'
 allowBuilds:
+  '@fails-components/webtransport-transport-http3-quiche': false
   esbuild: true
 # pnpm 11 defaults verifyDepsBeforeRun to install, which nested-installs on
 # `pnpm exec` / `pnpm build`. The SDK already runs `pnpm install` explicitly.

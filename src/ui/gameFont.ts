@@ -8,7 +8,6 @@
 
 import * as ENGINE from '@gnsx/genesys.js';
 
-const FONT_URL = '@project/assets/fonts/hellobaby.otf';
 let installed = false;
 
 /** Inject the @font-face + override once, and tag the game container so its subtree uses the font. */
@@ -16,7 +15,8 @@ export async function installGameFont(container: HTMLElement): Promise<void> {
   container.classList.add('trimen-font');
   if (installed) return;
   installed = true;
-  const css = `@font-face{font-family:'HelloBaby';font-display:swap;src:url('${FONT_URL}') format('opentype');}`
+  // The asset path stays one contiguous literal so the project build copies the font file.
+  const css = "@font-face{font-family:'HelloBaby';font-display:swap;src:url('@project/assets/fonts/hellobaby.otf') format('opentype');}"
     + `.trimen-font, .trimen-font *{font-family:'HelloBaby', system-ui, sans-serif !important;}`;
   const resolved = await ENGINE.resolveAssetPathsInText(css);
   const style = document.createElement('style');

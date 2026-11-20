@@ -123,13 +123,12 @@ export class LootDrop extends ENGINE.SceneNode {
   private groundYAt(x: number, z: number): number | null {
     const physics = this.getPhysicsEngine();
     if (!physics) return null;
-    const hits = physics.performHitTest({
+    const hit = physics.raycast({
       origin: new THREE.Vector3(x, this.position.y + 5, z),
       direction: new THREE.Vector3(0, -1, 0),
       maxDistance: 60,
-      stopOnFirstHit: true,
     });
-    return hits[0] ? hits[0].hitLocation.y : null;
+    return hit ? hit.hitLocation.y : null;
   }
 
   public getPickupPosition(out: THREE.Vector3): THREE.Vector3 {

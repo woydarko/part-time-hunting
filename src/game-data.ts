@@ -9,6 +9,7 @@ import { NpcIdleController } from './nodes/NpcIdleController.js';
 import { ShopkeeperInteractable } from './nodes/ShopkeeperInteractable.js';
 import { WaterNode } from './nodes/WaterNode.js';
 
+/** @public */
 export function registerMetadata(): void {
   registerGeneratedClassMetadata(WildAnimal, { description: "WildAnimal - one huntable animal (built in code, no prefab). It shows the animal GLB and drives a\nlocomotion animconfig via a `speed` parameter (0 = idle, >0.5 = walk, >3 = run), so the walk/run\ncycle follows its actual movement with smooth blends.\n\nBehaviour is PROVOKED: it wanders peacefully until it takes damage, then reacts for\n`provokeDuration` seconds — a flee animal (aggressive = false) runs away zigzag; an aggressive\nanimal chases and attacks. Configure per species with" });
   registerGeneratedPropertyMetadata(WildAnimal, {

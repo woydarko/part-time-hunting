@@ -121,16 +121,14 @@ export class ArrowProjectile extends ENGINE.SceneNode {
 
     const physics = this.getPhysicsEngine();
     if (physics && step > 1e-6) {
-      const hits = physics.performHitTest({
+      const hit = physics.raycast({
         origin,
         direction: this.tmpDir.copy(this.tmpStep).normalize(),
         maxDistance: step,
-        stopOnFirstHit: true,
         ignoredRootNodes: this.ignoreRoot ? [this.ignoreRoot] : undefined,
       });
-      const hit = hits[0];
       if (hit) {
-        const target = (hit.hitRoot ?? hit.hitNode) as unknown as { takeDamage?: (n: number) => void } | null;
+        const target = (hit.hitNode?.getRoot() ?? hit.hitNode) as unknown as { takeDamage?: (n: number) => void } | null;
         target?.takeDamage?.(this.damage);
         this.stick(hit.hitLocation);
         return;
