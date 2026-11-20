@@ -1,7 +1,8 @@
 /**
  * GearShopUI - the Ranger's gear shop. Same open/close/camera/freeze flow as the shop, but the
  * content is 3 category tabs (Melee / Range / Boots); picking a tab shows that category's items in
- * a simple ◀ ▶ carousel (one item card at a time). Placeholder items for now; buying is a stub.
+ * a simple ◀ ▶ carousel (one item card at a time). Buying spends gold through the `onBuy` callback
+ * (BarbarianPawn.buyGear), which places the item in the hotbar / backpack.
  * Anchored to the LEFT (the 3D Ranger is framed on the right). Safe UI — developer-authored strings.
  */
 
