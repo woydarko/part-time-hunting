@@ -77,7 +77,7 @@ export class BackpackUI {
     this.grid = new ItemGrid(inventory, {
       // Backpack shows the stack COUNT only (price is a shop concept) — avoids the price/count badges
       // overlapping in the same corner and being misread as quantity.
-      columns: 4, draggable: true, showPrice: false, slotSize: 72,
+      columns: 4, draggable: true, dragLayer: container, showPrice: false, slotSize: 72,
       slotBackground: 'rgba(232,208,170,0.92)', slotBorder: 'rgba(120,78,40,0.85)',
     });
 

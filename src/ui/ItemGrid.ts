@@ -28,6 +28,8 @@ export interface ItemGridOptions {
   /** Override slot fill / border colour (e.g. to match a themed panel). */
   slotBackground?: string;
   slotBorder?: string;
+  /** Element the drag ghost is drawn in (the game UI container); defaults to the grid itself. */
+  dragLayer?: HTMLElement;
 }
 
 export class ItemGrid {
@@ -168,9 +170,12 @@ export class ItemGrid {
       const item = this.inventory.get(index);
       if (!item) return;
 
+      // In the editor the game is a panel, so place the ghost inside the game UI layer, relative to it.
+      const layer = this.opts.dragLayer ?? this.root;
+      const layerRect = layer.getBoundingClientRect();
       const ghost = document.createElement('div');
       Object.assign(ghost.style, {
-        position: 'fixed', left: `${e.clientX}px`, top: `${e.clientY}px`,
+        position: 'absolute', left: `${e.clientX - layerRect.left}px`, top: `${e.clientY - layerRect.top}px`,
         transform: 'translate(-50%,-50%)', width: '48px', height: '48px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: '34px', opacity: '0.9', pointerEvents: 'none', zIndex: '1000',
@@ -187,12 +192,12 @@ export class ItemGrid {
           ghost.appendChild(gimg);
         }).catch(() => { /* keep emoji */ });
       }
-      document.body.appendChild(ghost);
+      layer.appendChild(ghost);
       slot.style.opacity = '0.5';
 
       const move = (ev: PointerEvent) => {
-        ghost.style.left = `${ev.clientX}px`;
-        ghost.style.top = `${ev.clientY}px`;
+        ghost.style.left = `${ev.clientX - layerRect.left}px`;
+        ghost.style.top = `${ev.clientY - layerRect.top}px`;
       };
       const up = (ev: PointerEvent) => {
         document.removeEventListener('pointermove', move);

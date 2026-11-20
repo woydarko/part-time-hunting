@@ -33,6 +33,7 @@ export class Hotbar {
     this.grid = new ItemGrid(inventory, {
       columns: inventory.size,
       draggable: true,
+      dragLayer: container,
       showIndex: true,
       slotSize: 48,
       onSlotClick: onSelect,

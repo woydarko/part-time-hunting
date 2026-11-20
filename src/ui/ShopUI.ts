@@ -73,8 +73,8 @@ export class ShopUI {
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px',
     } as CSSStyleDeclaration);
 
-    this.playerGrid = new ItemGrid(playerInventory, { columns: 4, draggable: true, showPrice: false, slotSize: 56, slotBackground: SLOT_BG, slotBorder: SLOT_BORDER });
-    this.trayGrid = new ItemGrid(this.tray, { columns: 4, draggable: true, showPrice: false, slotSize: 56, slotBackground: SLOT_BG, slotBorder: SLOT_BORDER });
+    this.playerGrid = new ItemGrid(playerInventory, { columns: 4, draggable: true, dragLayer: container, showPrice: false, slotSize: 56, slotBackground: SLOT_BG, slotBorder: SLOT_BORDER });
+    this.trayGrid = new ItemGrid(this.tray, { columns: 4, draggable: true, dragLayer: container, showPrice: false, slotSize: 56, slotBackground: SLOT_BG, slotBorder: SLOT_BORDER });
 
     this.totalLabel = this.buildInfo();
 
