@@ -62,7 +62,6 @@
             "$ref": 1
           }
         ],
-        "isSunLight": true,
         "light": {
           "$ref": 1
         },
@@ -100,7 +99,7 @@
         "$bc": "ENGINE.PlayerStart",
         "$initOptions": {},
         "children": {
-          "$length": 1
+          "$length": 2
         },
         "editorData": {
           "hidden": false
@@ -164,14 +163,7 @@
             0
           ]
         },
-        "scale": {
-          "$bc": "v3",
-          "_": [
-            10000,
-            10000,
-            10000
-          ]
-        },
+        "skyMeshScale": 10000,
         "sunPosition": {
           "$bc": "v3",
           "_": [

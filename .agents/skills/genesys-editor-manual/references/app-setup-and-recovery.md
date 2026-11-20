@@ -64,7 +64,3 @@ When open/load fails, a recovery dialog appears on the current page (dashboard, 
 | Dismiss | Close recovery without reopening |
 
 Copyable error details are in the dialog for support. Menu stays usable during recovery so Genesys AI Settings remains reachable.
-
-## Play Local Project *(dev SDK only)*
-
-From the dashboard Play Local Project card (or Play Launcher): pick a local Genesys project folder, optionally build, and start the game without opening the full editor. Remembers last folder and Build Project Before Playing.

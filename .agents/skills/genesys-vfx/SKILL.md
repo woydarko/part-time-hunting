@@ -1,115 +1,153 @@
 ---
 name: genesys-vfx
-description: VFX, particle effects, particles, explosion, trail effect, hit effect, magic effect, muzzle flash, visual effects system — VFXNode, GlobalParticleManager.spawnVFX, and VFX JSON definitions for one-shot and looping GPU particle emitters. Use when implementing explosions, hit sparks, trails, fire, smoke, magic, or other particle-based effects.
+description: "Particles and effects: VFXNode, spawnVFX, definitions (hand-written JSON or inline), lifecycle and leaks, and which moments get effects (muzzle, trail, impact, death, pickup, ambient). Use for explosions, sparks, trails, fire, smoke, magic, dust, torches, portals, rain, auras, juice that is particles. Not for bloom or emissive glow (use `genesys-lighting`), screen shake or hitstop (use `genesys-game-feel`), or floating damage numbers (use `genesys-ui`)."
+metadata:
+  tokens: 3643
 ---
 
-# VFX / Particles
+# VFX
 
-Engine particle system lives in `.engine/src/vfx/` and `.engine/src/entities/GlobalParticleManager.ts`. Read source for full field lists — this skill maps what exists and flags non-obvious pitfalls.
+This skill owns the particle API (`VFXNode`, `GlobalParticleManager`, `VFXDefinition`), effect definitions, and the decision of which moments get an effect. The one rule: a one-shot effect uses fire-and-forget `spawnVFX`; anything that loops or must stop early is an owned `VFXNode`, because a looping `spawnVFX` runs until something passes its emitters to `despawnVFX`.
 
-## What's available
+## Use another skill when
+- How strong a hit should feel, hitstop, screen shake, the two-channel rule → `genesys-game-feel`
+- The sound that plays with the effect → `genesys-audio`
+- Camera kick or a short cut to a view target → `genesys-camera`
+- Projectiles, damage, death logic that triggers the effect → `genesys-combat`
+- Enemy hit reaction paired with impact → `genesys-creatures`
+- Floating damage numbers → `genesys-ui`
+- Bloom, exposure, emissive glow on meshes → `genesys-lighting`
+- A particle texture or flipbook (smoke puff, flame sheet) → `genesys-assets`; the engine ships none
+- Who plays the effect online → `genesys-multiplayer`
+- Too many particles costing frames, a light on an effect → `genesys-profiler`
 
-`VFXNode` (`.engine/src/vfx/VFXNode.ts`) — a `SceneNode` (not a `PrimitiveNode`; no collision shape) that owns one or more particle emitters loaded from a VFX definition. Key properties: `vfxPath` (project path to a `.vfx.json` resource, editor-authored and serialized), `vfxDefinition` (inline `VFXDefinition` passed at `.create()` time — code-only, never serialized, overrides `vfxPath` when set), `autoStart` (default `true`). Methods: `startEmitting(reset = true)`, `stopEmitting()`, `emitAtPosition(position, reset = false)`, `getVFXEmitters()` / `getVFXEmitter(index)`, `getVFXDefinition()`, `getIsReady()`, `waitUntilReady()`.
+## Decide
 
-Editor authoring — VFX definitions (particles + emitters JSON) are created and tuned via the Asset Browser's New VFX / Inspector VFX Editor UI, not via MCP scripting (VFX editing is UI-only). Reference example definitions ship at `@engine/assets/dev/vfx/` (e.g. `explosion-burst.json`, `fire-example.json`, `smoke-alpha.json`, `sparkles-stretch.json`) — useful starting points to copy, not a curated "preset" API.
+### The moment gate
 
-`GlobalParticleManager` (`.engine/src/entities/GlobalParticleManager.ts`) — a transient, always-present root reachable as `world.globalParticleManager`. Provides fire-and-forget spawning that needs no node of your own:
-- `spawnVFX(name, particlesSettings, emitterSettings, options?)` — inline particle/emitter settings (single or arrays), builds a `VFXDefinition` under the hood.
-- `spawnVFXFromDefinition(definition, options?)` — from an existing `VFXDefinition`.
-- `spawnVFXFromPath(vfxPath, options?)` — loads a `.vfx.json` resource by path.
+List the moments from the game's rules (shoot, hit, kill, pickup, jump, land, take damage, die, win), then mark each one in a line in `GAME.md`:
+- **effect earns it** — the player must notice it, so it gets an effect (and a sound);
+- **already covered** — another channel carries it (the enemy's death animation, a UI pop);
+- **deliberately bare** — quiet on purpose (footsteps in a stealth game).
 
-All three accept `options: { position?, rotation?, scale? }` and return the created `VFXEmitterCore[]`. Each `name` is a shared particle-system key — reusing the same `name` reuses the same pooled `InstancedMesh` (see Footguns).
+"Not decided" is not a fourth state. Then run the **inverse check**: every effect in the game names the player action or game event that causes it. An effect with no cause is noise; cut it. Ambient effects (torch, portal, waterfall) are the one exception, and each still marks a place the player should read.
 
-Attaching to a moving node — add a `VFXNode` as a child of any placeable so it inherits the parent's transform every frame: `weaponMuzzle.add(ENGINE.VFXNode.create({ vfxPath, autoStart: true }))`. No `isRoot` needed; it moves with its parent like any child node.
+**Shape gate.** The effect looks like the thing it is. A cube, a sphere, or a flat-coloured primitive standing in for fire, smoke, or an explosion is a placeholder, even if the code calls it final. Fire is additive, rising, warm-to-dark particles; smoke is normal-blended, slow, grey, growing.
 
-Attaching at a fixed world position — either place a standalone `VFXNode` as its own root: `ENGINE.VFXNode.create({ isRoot: true, position, vfxPath })` then `world.add(vfxNode)`; or use `world.globalParticleManager.spawnVFX(...)` with `options.position` for a one-off that needs no persistent node at all.
+Default builds per moment (starting numbers in [moments](references/moments.md)):
+- **Travel** (projectile, swing): a visible mesh, or an owned looping child `VFXNode` trail on the mover.
+- **Muzzle / cast, impact, death, pickup**: a one-shot `spawnPreset` (or `spawnVFX` for your own look) at the barrel, hit point (on enemies and walls), body (after the death animation) or pickup.
+- **Recovery / lingering** (fire, smoke, debuff, aura): an owned `VFXNode` the owner stops and destroys when the state ends.
+- **Ambient** (torch, portal): a `VFXNode` with a project definition (`vfxPath`), placed with MCP or added by the prop's class, pool sized for every instance.
 
-One-shot vs looping — set via the emitter's `loop` field (`VFXEmitterSettings.loop`, default `false`) and `spawnMode` (`'time'` spreads emission across `duration`; `'burst'` emits `nbParticles` immediately). `VFXNode.emitAtPosition()` only works with `spawnMode: 'burst'` emitters.
+- **A game whose pitch is shooting** (shooter, bullet hell, "flashy fire"): the player's shot owes travel, muzzle, impact, and a sound. A muzzle flash alone does not meet it. Enemy shots use the same travel and impact channels.
+- **Two channels.** A moment the player must not miss pairs the particle with a sound from the same call site (`genesys-audio`). A camera reaction (shake, hitstop) is added only when `genesys-game-feel` calls for it, from its recipe; never write a camera-shake class here.
+- **Bloom off test.** The effect still reads without bloom. Bloom is not the silhouette; size and colour contrast are.
+- **Caps.** The particle manager plays at most `maxLiveEffects` (32) one-shot effects at once and drops the rest (`droppedEffectCount`); raise it only with a profile. Pool size `nbParticles` = worst-case concurrent particles for that system, not lifetime total.
+- **No lights on effects.** `emitLight` adds a `THREE.PointLight` per emitter. Never set it on anything spawned (muzzle, impact, explosion, pickup): each light recompiles shaders on spawn and on removal (`genesys-profiler` → *Never pay per spawn*). It is acceptable only on a few placed, long-lived ambient effects (a campfire), and even there an emissive mesh plus bloom is cheaper.
 
-## Footguns
+## Build
 
-- Looping `spawnVFX()` never self-cleans. `GlobalParticleManager` tracks each `spawnVFX`/`spawnVFXFromDefinition` call's emitter with a computed lifetime (`duration + particlesLifetime[1]`, or `Infinity` when `loop: true`) and only calls `removeFromParent()` once elapsed time passes that lifetime. A looping emitter's lifetime is `Infinity`, so it is never auto-removed — it ticks forever. There is no public per-handle despawn API; `cleanupAllVFX()` (called internally on world end) clears everything indiscriminately. For any looping/persistent effect (fire, trails, auras) that must stop early, own a `VFXNode` yourself and call `stopEmitting()` then destroy/remove the node — don't use fire-and-forget `spawnVFX` for it.
-- Particle count is a fixed, shared pool, not a spawn budget. `nbParticles` in `VFXParticlesSettings` sizes one `InstancedMesh`'s ring buffer; `getOrCreateVFXParticles` reuses the mesh for any call using the same generated name (`${definitionName}_particles_${index}`). Emitting beyond capacity silently overwrites (wraps) the oldest particles rather than growing. Size `nbParticles` for worst-case *concurrent* particles for that system, not lifetime total — and give visually distinct systems distinct names so they don't share (and stomp) one pool.
-- Inline `vfxDefinition` doesn't round-trip. `VFXNodeOptions.vfxDefinition` is for code-constructed effects only; it is never serialized, so it won't survive save/load or prefab instancing. Use `vfxPath` (editor-authored `.vfx.json`) for anything that needs to persist.
-- `VFXDefinition.fromJSON` validates strictly. It throws if `particles` or `emitters` arrays are empty, or if numeric ranges aren't exactly `[min, max]` / vector fields aren't exactly length 3 — a hand-built JSON/inline settings object with a missing or malformed field throws at load/spawn time, not silently.
-- Emitters created lazily. `VFXNode` only builds its `VFXEmitterCore`s once the node has a `world` (in `beginPlay`) and once particle textures/geometry finish loading (`getIsReady()` / `waitUntilReady()`); calling `startEmitting()` earlier just queues a pending auto-start instead of erroring.
+### One-shot at a point (impact, muzzle, death, pickup)
 
-## Source index
+Source: `InstantHitWeaponNode.playHitEffect` in `.engine/src/nodes/gameplay/InstantHitWeaponNode.ts`
+```ts
+const UP = new THREE.Vector3(0, 1, 0);
 
-Start with `.engine/src/vfx/index.ts`, then open the file you need.
-
-| File | Contents |
-| --- | --- |
-| `vfx/VFXNode.ts` | Node wrapper: load definition, create emitters in `beginPlay`, start/stop/emit-at-position API |
-| `vfx/types.ts` | `VFXParticlesSettings`, `VFXEmitterSettings`, `VFXDefinition` (JSON schema + validation), `EaseFunction` list |
-| `vfx/easings.ts` | TSL implementations of every `EaseFunction`, selected by `easeFunction` |
-| `vfx/core/VFXEmitterCore.ts` | Spawn-pattern logic: timed vs burst emission, position/rotation/direction/color randomization per particle |
-| `vfx/core/VFXParticlesShared.ts` | Shared instanced-mesh particle buffer (WebGL/WebGPU base), pooling/ring-buffer `emit()` |
-| `entities/GlobalParticleManager.ts` | `world.globalParticleManager`: `spawnVFX`/`spawnVFXFromDefinition`/`spawnVFXFromPath`, attached-VFX lifetime tracking and cleanup |
-
-Deeper field-by-field settings reference: [references/vfx-definition-schema.md](references/vfx-definition-schema.md). Node lifecycle and spawn-pattern walkthroughs with more code: [references/spawning-and-lifecycle.md](references/spawning-and-lifecycle.md).
-
-## Example
-
-```typescript
-import * as ENGINE from '@gnsx/genesys.js';
-import * as THREE from 'three';
-
-@ENGINE.GameClass()
-export class ExplosiveBarrelNode extends ENGINE.PrimitiveNode {
-  constructor() {
-    super();
-    this.isRoot = true;
-  }
-
-  public detonate(): void {
-    const world = this.getWorld();
-    if (!world) return;
-
-    // Fire-and-forget burst at this barrel's position — no node to clean up.
-    void world.globalParticleManager.spawnVFX(
-      'barrelExplosion',
-      {
-        nbParticles: 300,
-        renderMode: 'billboard',
-        appearance: 'circular',
-        blendingMode: 'additive',
-        easeFunction: 'easeOutCubic',
-        fadeAlpha: [0.8, 0],
-        fadeSize: [0.5, 0.1],
-        gravity: [0, -5, 0],
-      },
-      {
-        loop: false,
-        spawnMode: 'burst',
-        duration: 0.1,
-        nbParticles: 120,
-        particlesLifetime: [0.4, 1.0],
-        directionMin: [-1, 0.2, -1],
-        directionMax: [1, 2, 1],
-        size: [0.15, 0.3],
-        speed: [4, 8],
-        colorStart: ['#ffaa00', '#ff6600'],
-        colorEnd: ['#ff0000', '#660000'],
-      },
-      { position: this.getWorldPosition(new THREE.Vector3()) }
-    );
-
-    this.destroy();
-  }
+/** Sparks where a shot lands, sprayed along the surface normal. */
+export function spawnHitSparks(world: ENGINE.World, at: THREE.Vector3, normal: THREE.Vector3): void {
+  const rotation = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, normal));
+  void world.globalParticleManager.spawnPreset(ENGINE.HitSparksSmallVFX, at, { rotation });
 }
 ```
 
-For a looping effect owned by a node (e.g. a torch flame that must stop on demand), attach a `VFXNode` instead:
+A built-in preset is a class: `ExplosionVFX`, `HitSparksSmallVFX`, `HitSparksLargeVFX`, `MuzzleFlashVFX`, `DustPuffVFX`, `PickupSparkleVFX`, `MagicBurstVFX` and 14 more, all `ENGINE.*VFX`. `spawnPreset` options: `rotation` (impacts aim along local +Y, the muzzle flash along local -Z), `tint`, `effectScale`, `intensity`, `quality`, `seed`. The manager drops a one-shot spawn while `maxLiveEffects` (32) one-shot effects already play or load, for every spawn method, and counts it in `droppedEffectCount`; looping effects are not counted. Spawn each kind once during the title warm-up so its shader is compiled before play (`genesys-profiler`).
 
-```typescript
-const flame = ENGINE.VFXNode.create({ vfxPath: '@project/assets/vfx/torch-flame.vfx.json', autoStart: true });
-torchNode.add(flame);
-// later, to stop for good:
-flame.stopEmitting();
-flame.destroy();
+For a look no preset has, write your own preset class (*Your own preset*), or pass settings to `spawnVFX(name, particles, emitter, { position })`. Keep those settings as module constants and reuse the same `name`, so every call shares one pooled `InstancedMesh`. `ENGINE.VFXParticlesSettings` and `ENGINE.VFXEmitterSettings` are exported classes with all-optional fields; every field is in [vfx-definition-schema](references/vfx-definition-schema.md).
+
+### Your own preset
+
+```ts
+@ENGINE.GameClass()
+export class GooSplat extends ENGINE.VFXPreset {
+  public override readonly playback = 'one-shot';
+  public override readonly layers: ENGINE.VFXPresetLayer[] = [
+    {
+      name: 'blob', role: 'core', particles: { nbParticles: 64, appearance: 'circular' },
+      emitters: [{ spawnMode: 'burst', duration: 0.05, nbParticles: 12, size: [0.1, 0.25], speed: [1, 3], colorStart: ['#7cff5a'] }],
+    },
+    {
+      name: 'drops', role: 'secondary', particles: { nbParticles: 64, appearance: 'circular' },
+      emitters: [{ spawnMode: 'burst', duration: 0.05, nbParticles: 20, size: [0.03, 0.06], speed: [3, 6], gravity: [0, -9, 0] }],
+    },
+  ];
+}
 ```
 
-## Related skills
+Layers draw back to front. Low quality keeps the `core` layers plus one more, and medium drops `tertiary` ones. A game preset gets tint, effect scale, intensity, seeds, pool sizing and the cap like a built-in. `spawnPreset(GooSplat, at)` needs no registration. `VFXNode.preset = GooSplat` saves the class name, so it needs `@ENGINE.GameClass()` (an unregistered class throws). Always add the decorator.
 
-- `genesys-audio` — pair VFX with explosion/impact/loop sound cues.
+### Owned effect (trail, fire, aura)
+
+Source: `.engine/src/vfx/VFXNode.ts` — typechecked against 18.1.0-alpha.317
+```ts
+const trail = ENGINE.VFXNode.create({ vfxPath: '@project/assets/vfx/trail.vfx.json', autoStart: true });
+projectile.add(trail);   // child: follows the parent every frame, no isRoot
+// when the effect ends:
+trail.stopEmitting();
+trail.destroy();         // or destroy the parent; children tear down with it
+```
+
+Fixed spot in the world: `ENGINE.VFXNode.create({ isRoot: true, position, vfxPath })`, then `world.add(node)`.
+
+### Definitions you own (ambient and looping effects)
+
+The engine ships no ready effect files (the demo's `@engine/assets/dev/vfx/*.json` paths are not in the package). An owned effect's definition comes from one of four routes ([definitions](references/definitions.md)):
+- **Hand-written JSON** `assets/vfx/<name>.vfx.json` (`{ version: 1, name, particles, emitters }`), referenced by `vfxPath`: the route for placed effects and anything a scene or prefab references.
+- **Preset**: `VFXNode.preset` set to a preset class: one of the 21 built-ins (`ENGINE.FireVFX`, `ENGINE.SmokeVFX`, `ENGINE.RainVFX`, …) or your own (*Your own preset*).
+- **Inline** `vfxDefinition: ENGINE.VFXDefinition.fromJSON(DEF)`: code-only, never serialized.
+- **Editor-authored** in the VFX Editor (UI only; no MCP operation edits a definition).
+
+Check every hand-written file before Play: `node .agents/skills/genesys-vfx/scripts/vfx-check.mjs assets/vfx/torch-fire.vfx.json` (from the game project) prints `OK` or the exact `fromJSON` error, and warns when the pool is too small. Every instance with the same definition `name` shares one pool: ten torches at ~48 live particles each need `nbParticles` ≥ 480. No particle textures ship; `appearance: 'circular'` or `'square'` covers sparks, embers, dust and magic, and a flipbook is an asset row (`genesys-assets`). A working torch-flame definition: [definitions](references/definitions.md#definition-routes).
+
+### API map
+
+- `VFXNode`: `vfxPath`, `preset` (a preset class; reads its class name), `autoStart` (default `true`), option `vfxDefinition`; `startEmitting()`, `stopEmitting()`, `emitAtPosition()` (burst emitters only), `waitUntilReady()`.
+- `world.globalParticleManager`: `spawnPreset(PresetClass, position, options)`, `spawnVFX`, `spawnVFXFromDefinition`, `spawnVFXFromPath` (all no-op on a dedicated server), `maxLiveEffects`, `liveEffectCount`, `droppedEffectCount`, `getAttachedVFX()` (live fire-and-forget emitters), `despawnVFX(emitters)`, `cleanupAllVFX()`.
+- One-shot vs looping is the emitter's `loop` (default `false`) and `spawnMode` (`'time'` spreads over `duration`; `'burst'` emits at once). Full API: [definitions](references/definitions.md#api-map); sub-emitters, collision planes, colour ramps, clip keys: [vfx-definition-schema](references/vfx-definition-schema.md).
+
+### Placing effects in the scene
+
+A persistent `VFXNode` that belongs to a placed prop is editor state: add it through MCP (`action_node(action="add", className="ENGINE.VFXNode")`, set `vfxPath` to the file's literal `@project/assets/vfx/...` path, `action_scene(action="save")`, re-query; `genesys-mcp-orchestrator`), or give the prop's class the child `VFXNode` so every instance carries it. Spawn one-shots from gameplay code at the event.
+
+### Multiplayer
+
+The server decides the hit happened. Every client plays travel and impact locally. The call everyone must see is a multicast RPC (`genesys-multiplayer`). `spawnVFX` returns `[]` on a dedicated server, so calling it there is harmless but useless.
+
+## Traps
+- Fire, trail, or aura from `spawnVFX` with `loop: true` never stops → its lifetime is `Infinity` and nothing despawned it → keep the emitters `spawnVFX` returns and call `world.globalParticleManager.despawnVFX(emitters)` when the state ends, or use an owned `VFXNode` and `stopEmitting()` + `destroy()`.
+- Bursts flicker or old particles vanish mid-flight → the shared pool (`nbParticles` on the particle system) wrapped. Raise it to worst-case concurrent across every instance with that name, or split systems by `name`.
+- Two different effects look the same or stomp each other → same `name` means same pool. Name each system.
+- Inline `vfxDefinition` gone after save or in a prefab → it is never serialized. Use a JSON file and `vfxPath`.
+- A hitch on every impact or muzzle flash → the effect has `emitLight`, or makes a new material or effect name per spawn. Remove the light, use emissive particles and one name per effect kind (`genesys-profiler` → *Never pay per spawn*).
+- A hitch on the first impact only → the effect's shader compiled on first use. Spawn it once during the title warm-up (`genesys-profiler`).
+- Frame drops during big fights → a new effect name, material or light per bullet → reuse one preset or name; the manager already caps live one-shot effects (`maxLiveEffects`).
+- Effect invisible without bloom → raise `size`, `intensity`, and colour contrast; do not rely on bloom.
+- A glowing primitive or a coloured cube marks the fire or explosion → placeholder. Build the particle effect.
+- Definition and API traps (`fromJSON` errors, legacy JSON warning, `startEmitting` in `initialize`, `emitAtPosition` on a time emitter, edge popping): [definitions](references/definitions.md#traps).
+
+## Done
+- Every moment on the `GAME.md` list is marked earns it / already covered / deliberately bare, and every effect in the game names its cause.
+- Each "earns it" moment fires its effect in Play, at the right position, in the same call that plays its sound.
+- Shooting at a wall and at an enemy both show an impact.
+- Every hand-written definition passes `vfx-check.mjs` with no pool warning for the number of instances placed.
+- After 60 s of heavy play, `world.globalParticleManager.droppedEffectCount` is 0 or small and `liveEffectCount` drops back when fighting stops. Read it from code running in Play (the smoke test logs it, `genesys-verification`); `run_script` has no `window` or engine world, so it cannot read this.
+- Every looping effect stops when its owner's state ends (fire put out, pickup taken, enemy dead).
+- No spawned effect uses `emitLight` (`grep -rn "emitLight" src/ assets/vfx/`).
+- An in-Play capture with bloom off still shows the impact and death bursts (`genesys-verification`).
+
+## References
+- [moments](references/moments.md) — the moment table with default builds and starting numbers
+- [definitions](references/definitions.md) — definition routes, torch-flame definition, pool sizing, textures, full API map, definition traps
+- [spawning-and-lifecycle](references/spawning-and-lifecycle.md) — the three spawn patterns, internal lifecycle, cleanup checklist, source index
+- [vfx-definition-schema](references/vfx-definition-schema.md) — every particle and emitter field, defaults, easing list, validation rules
+- `scripts/vfx-check.mjs` — validate hand-written definition files with the engine validator, with a pool-size check
