@@ -39,6 +39,7 @@ import { installGameFont } from '../ui/gameFont.js';
 import { Hotbar } from '../ui/Hotbar.js';
 import { InteractPrompt } from '../ui/InteractPrompt.js';
 import { Crosshair } from '../ui/Crosshair.js';
+import { SpeedBlur } from '../ui/SpeedBlur.js';
 import { WeaponTuner, type WeaponTune } from '../ui/WeaponTuner.js';
 import { ShopUI } from '../ui/ShopUI.js';
 import { PauseMenu } from '../ui/PauseMenu.js';
@@ -123,8 +124,16 @@ const SPRINT_KEYS = ['ShiftLeft', 'ShiftRight'];  // hold Shift to sprint
 const DASH_SPEED = 13.3 * CHARACTER_SCALE; // dash velocity m/s (scaled to pawn size so the dash covers a proportional distance)
 const DODGE_DURATION = 0.6;   // seconds the burst decays over (0.5*speed*duration ~= distance)
 const DODGE_COOLDOWN = 0.6;   // seconds between rolls
-// Sprint: hold Shift to run faster (the same key taps into a dash). Multiplies the current max speed.
-const SPRINT_MULT = 1.5;
+// Sprint: hold Shift to run faster. Multiplies the current max speed immediately.
+const SPRINT_MULT = 1.7;
+// Stamina: sprint drains it while running; dash spends a chunk. Regen fills empty->full in 10s.
+const MAX_STAMINA = 100;
+const DASH_STAMINA_COST = 20;
+const SPRINT_STAMINA_DRAIN = 25;  // per second while sprinting + moving (full bar lasts ~4s)
+const STAMINA_REGEN = 10;         // per second (empty -> full in 10s)
+// FOV kick while sprinting — a subtle widen so the player feels the speed boost.
+const SPRINT_FOV_BOOST = 10;      // degrees added to the base FOV at full sprint
+const SPRINT_FOV_LERP = 8;        // how fast FOV eases to its target
 // Dodge clip is 0.4s; stretch it to match DODGE_DURATION so the animation and the dash
 // burst end together (velocity ~0 at exit = no clamp jitter / position snap).
 const DODGE_CLIP_SPEED = 0.4 / 0.6;
@@ -315,6 +324,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
   private backpackUI: BackpackUI | null = null;
   private interactPrompt: InteractPrompt | null = null;
   private crosshair: Crosshair | null = null;
+  private speedBlur: SpeedBlur | null = null;
   private weaponTuner: WeaponTuner | null = null;
   private inventory: Inventory | null = null;
   private hotbarInventory: Inventory | null = null;
@@ -326,7 +336,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
   private damageTimer = 0;      // remaining seconds of the damage buff
   private healTimer = 0;        // remaining seconds of heal-over-time
   private baseMaxSpeed = 0;     // movement max speed without the speed buff
-  private sprinting = false;    // Shift held → sprint (tap Shift also dashes)
+  private sprinting = false;    // Shift held → sprint
+  private stamina = MAX_STAMINA; // depletes on sprint/dash, regenerates when idle
+  private sprintFovActive = false; // true while sprinting + moving (drives the FOV kick)
+  private baseFov: number | null = null; // captured resting FOV, restored when not sprinting
   private shopOpen = false;              // true while ANY NPC menu (shop / gear shop) is open
   private activeMenuHide: (() => void) | null = null; // hides whichever menu is currently open
   private backpackOpen = false;
@@ -655,6 +668,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
       this.fadeOverlay = new FadeOverlay(gc);
       this.interactPrompt = new InteractPrompt(gc);
       this.crosshair = new Crosshair(gc);
+      this.speedBlur = new SpeedBlur(gc);
       // Shared player inventory (3x4 = 12 slots) — used by the backpack and the sell shop. Starts
       // EMPTY: the player begins with only the dagger (in the hotbar) and must hunt loot for gold,
       // then buy weapons/potions/arrows from the shops. (Full economy loop — no starter seeds.)
@@ -857,6 +871,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     this.goldHUD = null;
     this.crosshair?.dispose();
     this.crosshair = null;
+    this.speedBlur?.dispose();
+    this.speedBlur = null;
     this.weaponTuner?.dispose();
     this.weaponTuner = null;
     this.trail?.removeFromParent();
@@ -1535,7 +1551,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     const mn = this.movementNode;
     if (mn instanceof ENGINE.CharacterMovementNode) {
       const buffMult = this.speedTimer > 0 ? 1.4 : 1;
-      const sprintMult = this.sprinting && !this.drinking && !this.isDead ? SPRINT_MULT : 1;
+      const sprintMult = this.sprinting && this.stamina > 0 && !this.drinking && !this.isDead ? SPRINT_MULT : 1;
       mn.maxSpeed = this.baseMaxSpeed * buffMult * sprintMult;
     }
     this.damageMult = this.damageTimer > 0 ? 2 : 1;
@@ -2218,6 +2234,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     if (mn instanceof ENGINE.CharacterMovementNode && !mn.isGrounded) return; // ground only
     const st = this.animationNode.getGraphState('base') ?? '';
     if (DODGE_STATES.has(st) || ATTACK_STATES.has(st) || st === 'pickup') return;
+    if (this.stamina < DASH_STAMINA_COST) return; // not enough stamina to dash
+    this.stamina -= DASH_STAMINA_COST;
     Sfx.play('dash', 0.7);
 
     // Input direction relative to the camera, projected onto the character's facing.
@@ -2399,6 +2417,13 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     const settings = getSettings();
     ENGINE.DefaultPlayerController.inputSettings.lookSensitivity = this.aiming ? settings.aimSensitivity : settings.tpSensitivity;
 
+    // Apply speed modifiers (potion buff + sprint) immediately before movement input
+    if (mn instanceof ENGINE.CharacterMovementNode && this.baseMaxSpeed > 0) {
+      const buffMult = this.speedTimer > 0 ? 1.4 : 1;
+      const sprintMult = this.sprinting && this.stamina > 0 && !this.drinking && !this.isDead ? SPRINT_MULT : 1;
+      mn.maxSpeed = this.baseMaxSpeed * buffMult * sprintMult;
+    }
+
     if (this.isDead || this.shopOpen || this.shopCamReturning || this.backpackOpen || this.storeOpen || this.drinking || this.paused || this.preloading) {
       // Frozen: death fade, an open menu, the camera return, drinking a potion, pause, or preloading.
       if (mn) { mn.addForwardInput(0); mn.addRightInput(0); mn.addLookRightInput(0); }
@@ -2530,6 +2555,18 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
       }
       if (!this.wasGrounded && grounded) this.burstDust?.startEmitting(true); // landing puff
       this.wasGrounded = grounded;
+
+      // Stamina: drain while sprinting + actually moving; otherwise regenerate. Emptying auto-cancels
+      // the sprint (so speed drops back to normal until stamina recovers).
+      const sprintingNow = this.sprinting && moving;
+      if (sprintingNow && this.stamina > 0) {
+        this.stamina = Math.max(0, this.stamina - SPRINT_STAMINA_DRAIN * deltaTime);
+        if (this.stamina <= 0) this.sprinting = false;
+      } else if (!sprintingNow) {
+        this.stamina = Math.min(MAX_STAMINA, this.stamina + STAMINA_REGEN * deltaTime);
+      }
+      this.sprintFovActive = sprintingNow && this.stamina > 0;
+      this.healthBar?.setStamina(this.stamina, MAX_STAMINA);
 
       // Velocity sanitize (skip during dodge, which drives its own forward/right burst):
       //  - force rightVelocity = 0: we never strafe, so kill any lateral drift the controller
@@ -2668,7 +2705,20 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
       return;
     }
 
+    this.applySprintFov(deltaTime);
     this.applyFollowRig(deltaTime);
+  }
+
+  /** Widen the FOV slightly while sprinting (eased), restoring the resting FOV otherwise. */
+  private applySprintFov(deltaTime: number): void {
+    this.speedBlur?.setActive(this.sprintFovActive);
+    const cam = this.camera as unknown as { isPerspectiveCamera?: boolean; fov?: number; updateProjectionMatrix?: () => void };
+    if (!cam?.isPerspectiveCamera || typeof cam.fov !== 'number') return;
+    if (this.baseFov === null) this.baseFov = cam.fov;
+    const target = this.baseFov + (this.sprintFovActive ? SPRINT_FOV_BOOST : 0);
+    const t = Math.min(1, SPRINT_FOV_LERP * deltaTime);
+    cam.fov += (target - cam.fov) * t;
+    cam.updateProjectionMatrix?.();
   }
 
   /** Normal third-person follow rig: free-look while RMB held, pivot counter-rotates the char yaw. */

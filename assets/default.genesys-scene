@@ -8,9 +8,9 @@
           {
             "$bc": "c",
             "_": [
-              1,
-              0.930111,
-              0.83077
+              0.545724,
+              0.283149,
+              0.061246
             ]
           },
           16
@@ -71,17 +71,20 @@
         "rotation": {
           "$bc": "e",
           "_": [
-            1.396263,
+            1.047198,
             -0.174533,
             0
           ]
         },
-        "shadowBias": -0.001,
-        "shadowCameraBottom": -200,
-        "shadowCameraLeft": -200,
-        "shadowCameraRight": 200,
-        "shadowCameraTop": 200,
-        "shadowFar": 250,
+        "shadowBias": -0.0005,
+        "shadowCameraBottom": -120,
+        "shadowCameraLeft": -120,
+        "shadowCameraRight": 120,
+        "shadowCameraTop": 120,
+        "shadowFar": 220,
+        "shadowNear": 0.5,
+        "shadowNormalBias": 0.04,
+        "shadowRadius": 1.5,
         "userData": {
           "objectFlags": 6
         },
@@ -204,6 +207,7 @@
       },
       {
         "$bc": "ENGINE.ModelMeshNode",
+        "castShadow": true,
         "children": [
           {
             "$bc": "ENGINE.AnimationStateMachineNode",
@@ -281,6 +285,7 @@
             64.9
           ]
         },
+        "receiveShadow": true,
         "scale": {
           "$bc": "v3",
           "_": [
@@ -297,34 +302,7 @@
       },
       {
         "$bc": "ENGINE.ModelMeshNode",
-        "modelUrl": "@project/assets/models/map revisi.glb",
-        "name": "Map",
-        "nodeId": 2202,
-        "physicsOptions": {
-          "enabled": false
-        },
-        "userData": {
-          "isTransient": false,
-          "objectFlags": 4
-        },
-        "uuid": "a020ccb2-373b-40a2-b429-cf1feb858e20"
-      },
-      {
-        "$bc": "ENGINE.ModelMeshNode",
-        "hiddenInGame": true,
-        "modelUrl": "@project/assets/models/map_collision2.glb",
-        "name": "Model Mesh",
-        "nodeId": 25626,
-        "physicsOptions": {
-          "collisionMeshType": "trimesh"
-        },
-        "userData": {
-          "objectFlags": 4
-        },
-        "uuid": "7393dc1179980698"
-      },
-      {
-        "$bc": "ENGINE.ModelMeshNode",
+        "castShadow": true,
         "children": [
           {
             "$bc": "ENGINE.AnimationStateMachineNode",
@@ -365,6 +343,7 @@
             71.9
           ]
         },
+        "receiveShadow": true,
         "rotation": {
           "$bc": "e",
           "_": [
@@ -747,6 +726,107 @@
           "objectFlags": 4
         },
         "uuid": "0a60ffbb6ee0ccad"
+      },
+      {
+        "$bc": "ENGINE.SceneNode",
+        "children": [
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "modelUrl": "@project/assets/models/new_maps/GROUND.glb",
+            "name": "Ground",
+            "nodeId": 45111,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "43ff403d1abc0321"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/PINE.glb",
+            "name": "Pine",
+            "navigationGeometryRole": "obstacle",
+            "nodeId": 9024,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "5dc50df5812107c8"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/TREE.glb",
+            "name": "Tree",
+            "navigationGeometryRole": "obstacle",
+            "nodeId": 39610,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "24c46ff6e9a6c408"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/ROCK.glb",
+            "name": "Rock",
+            "navigationGeometryRole": "obstacle",
+            "nodeId": 48377,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "fee8a1230a37c3d7"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/LOG.glb",
+            "name": "Log",
+            "navigationGeometryRole": "obstacle",
+            "nodeId": 16199,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "2bfe8a91ec1b4de5"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/DECORATION.glb",
+            "name": "Decoration",
+            "navigationGeometryRole": "obstacle",
+            "nodeId": 64654,
+            "physicsOptions": {
+              "collisionMeshType": "trimesh"
+            },
+            "receiveShadow": true,
+            "uuid": "7e8e6f077778b87e"
+          },
+          {
+            "$bc": "ENGINE.ModelMeshNode",
+            "castShadow": true,
+            "modelUrl": "@project/assets/models/new_maps/BUSH.glb",
+            "name": "Bush",
+            "navigationGeometryRole": "none",
+            "nodeId": 24189,
+            "physicsOptions": {
+              "collisionProfile": "NoCollision",
+              "enabled": false
+            },
+            "receiveShadow": true,
+            "uuid": "cacc991a7a35cdde"
+          }
+        ],
+        "name": "Map",
+        "nodeId": 42903,
+        "userData": {
+          "objectFlags": 4
+        },
+        "uuid": "e98166dcb2ef851c"
       }
     ],
     "editorData": {
@@ -769,16 +849,6 @@
           },
           {
             "id": "6684cca20df50131",
-            "isExpanded": false,
-            "nodeType": "actor"
-          },
-          {
-            "id": "a020ccb2-373b-40a2-b429-cf1feb858e20",
-            "isExpanded": false,
-            "nodeType": "actor"
-          },
-          {
-            "id": "7393dc1179980698",
             "isExpanded": false,
             "nodeType": "actor"
           },
@@ -849,6 +919,11 @@
           },
           {
             "id": "0a60ffbb6ee0ccad",
+            "isExpanded": false,
+            "nodeType": "actor"
+          },
+          {
+            "id": "e98166dcb2ef851c",
             "isExpanded": false,
             "nodeType": "actor"
           }

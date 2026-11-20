@@ -18,6 +18,7 @@ export class HealthBar {
   private readonly root: HTMLElement;
   private readonly fill: HTMLElement;
   private readonly num: HTMLElement;
+  private readonly staminaFill: HTMLElement;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement('div');
@@ -63,7 +64,26 @@ export class HealthBar {
     this.num.textContent = '100';
 
     row.append(bar, this.num);
-    this.root.append(portrait, row);
+
+    // Stamina bar — thinner, directly below the HP bar (same width, left-aligned).
+    const staminaBar = document.createElement('div');
+    Object.assign(staminaBar.style, {
+      width: '320px', height: '16px', padding: '3px', boxSizing: 'border-box',
+      background: 'rgba(0,0,0,0.45)', border: '2px solid rgba(0,0,0,0.6)', borderRadius: '4px',
+    } as CSSStyleDeclaration);
+    const staminaTrack = document.createElement('div');
+    Object.assign(staminaTrack.style, {
+      position: 'relative', width: '100%', height: '100%',
+      background: 'rgba(10,25,40,0.8)', borderRadius: '2px', overflow: 'hidden',
+    } as CSSStyleDeclaration);
+    this.staminaFill = document.createElement('div');
+    Object.assign(this.staminaFill.style, {
+      width: '100%', height: '100%', background: '#46c6ff', transition: 'width 0.08s linear',
+    } as CSSStyleDeclaration);
+    staminaTrack.appendChild(this.staminaFill);
+    staminaBar.appendChild(staminaTrack);
+
+    this.root.append(portrait, row, staminaBar);
     container.appendChild(this.root);
   }
 
@@ -75,6 +95,13 @@ export class HealthBar {
     this.fill.style.background = color;
     this.num.textContent = String(Math.max(0, Math.round(current)));
     this.num.style.color = color;
+  }
+
+  /** Update the stamina bar from current/max stamina. Dims when empty. */
+  public setStamina(current: number, max: number): void {
+    const frac = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0;
+    this.staminaFill.style.width = `${frac * 100}%`;
+    this.staminaFill.style.background = frac <= 0.001 ? '#2a6a8a' : '#46c6ff';
   }
 
   public dispose(): void {
