@@ -47,6 +47,11 @@ import { LoadingScreen } from '../ui/LoadingScreen.js';
 import { preloadGameAssets } from '../systems/preloadGameAssets.js';
 import { getSettings } from '../systems/GameSettings.js';
 import { isAuthority, isOnline } from '../systems/Net.js';
+import { StoreRewards, type StoreRewardTarget } from '../systems/StoreRewards.js';
+import {
+  CHARM_DURATION_MS, CHARM_SELL_MULT, GOLD_POUCH_AMOUNT, QUIVER_ARROWS, SATCHEL_BACKPACK_SIZE,
+  SKU_GOLD_POUCH, SKU_MERCHANT_CHARM, SKU_POTION_KIT, SKU_QUIVER, SKU_SATCHEL,
+} from '../data/storeItems.js';
 import { Sfx } from '../systems/Sfx.js';
 import { RUN_DUST, BURST_DUST, DASH_DUST } from '../vfx/DustVfx.js';
 import { WeaponTrailNode } from '../vfx/WeaponTrailNode.js';
@@ -86,6 +91,7 @@ const ATTACK_MIN_GAP = 0.42; // seconds — slower swing cadence so melee can't 
 // Melee reach (world units, added on top of each animal's hit radius). Damage comes from the
 // equipped weapon (or BAREHAND_DAMAGE). Frontal only: target must be roughly ahead of the pawn.
 const MELEE_REACH = 2.0;
+const STORE_KEY = 'KeyT';   // opens the Silicon store
 const LOOT_PICKUP_RANGE = 0.55; // player must be this close (world units) to pick up a loot drop
 // Timed potion effects.
 const SPEED_DURATION = 60;  // blue: +40% move speed for this many seconds
@@ -237,7 +243,7 @@ function maxHitDamage(): number {
 }
 
 @ENGINE.GameClass()
-export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
+export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreRewardTarget {
 
   // ---- co-op replicated state: written on the server, shown on the OTHER players' screens ----
   /** Weapon in hand ('' = bare hands). */
@@ -246,6 +252,13 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
   /** Aiming a ranged weapon (upper-body aim pose). */
   @ENGINE.property({ replicate: true, transient: true, net: { netType: 'bool', replicateTo: 'non-owner' } })
   public netAiming: boolean = false;
+  // Silicon store state (owner only).
+  /** Merchant's Charm expiry, epoch ms (0 = inactive). */
+  private sellBonusUntil = 0;
+  /** The Silicon store UI is open (gameplay frozen, cursor free). */
+  private storeOpen = false;
+  /** This pawn is the store's reward target (the local player). */
+  private isStoreTarget = false;
   // Owner: last values sent to the server, so they are sent on change only.
   private sentMaxSpeed = -1;
   private sentSpeedModifier = -1;
@@ -592,7 +605,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
         this.toggleBackpack();
         return true;
       }
-      if (this.shopOpen || this.backpackOpen) return false; // ignore gameplay keys while a menu is open
+      // T opens the Silicon store (when installed), not while another menu is open.
+      if (e.code === STORE_KEY && !this.shopOpen && !this.shopCamReturning && !this.backpackOpen && !this.isDead && !this.storeOpen) {
+        this.openSiliconStore();
+        return true;
+      }
+      if (this.shopOpen || this.backpackOpen || this.storeOpen) return false; // ignore gameplay keys while a menu is open
       if (e.code === PICKUP_KEY) {
         this.pickupPulse = 2;             // play the pickup gesture
         const loot = this.nearestLoot();  // grab any loot right at the player's feet
@@ -642,7 +660,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       // then buy weapons/potions/arrows from the shops. (Full economy loop — no starter seeds.)
       this.inventory = new Inventory(12);
       this.goldHUD = new GoldHUD(gc, this.gold);
-      this.shopUI = new ShopUI(gc, () => this.closeShop(), this.inventory, (total) => this.addGold(total), () => this.gold);
+      this.shopUI = new ShopUI(gc, () => this.closeShop(), this.inventory, (total) => this.addGold(this.applySellBonus(total)), () => this.gold);
       this.gearShopUI = new GearShopUI(
         gc,
         () => this.closeShop(),
@@ -658,6 +676,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       if (saved) {
         this.restoring = true;
         this.gold = saved.gold;
+        // Grow first (Hunter's Satchel) so the extra backpack slots load too.
+        if (typeof saved.backpackSize === 'number') this.inventory.grow(Math.min(saved.backpackSize, SATCHEL_BACKPACK_SIZE));
+        this.sellBonusUntil = typeof saved.sellBonusUntil === 'number' ? saved.sellBonusUntil : 0;
         if (Array.isArray(saved.hotbar)) this.hotbarInventory.load(saved.hotbar);
         if (Array.isArray(saved.backpack)) this.inventory.load(saved.backpack);
         this.goldHUD.set(this.gold);
@@ -666,6 +687,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       // Auto-save whenever either inventory changes (buy, sell, pickup, drag, consume).
       this.hotbarInventory.onChange(() => this.persist());
       this.inventory.onChange(() => this.persist());
+      // This is the local player: Silicon store purchases are delivered here.
+      StoreRewards.setTarget(this);
+      this.isStoreTarget = true;
 
       this.pauseMenu = new PauseMenu(gc, () => this.closePause(), () => this.gotoMainMenu(), (v) => this.applyVolume(v));
       // Loot-pickup toast (top-centre, big) + held-item name flash (above the hotbar) — both fade out.
@@ -684,7 +708,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       // if the lock is lost while we're in normal play (no menu open), that Esc means "pause".
       this.lockHandler = () => {
         const locked = document.pointerLockElement != null;
-        if (!locked && this.wasLocked && !this.paused && !this.shopOpen && !this.backpackOpen && !this.preloading && !this.isDead) {
+        if (!locked && this.wasLocked && !this.paused && !this.shopOpen && !this.backpackOpen && !this.storeOpen && !this.preloading && !this.isDead) {
           this.openPause();
         }
         this.wasLocked = locked;
@@ -721,7 +745,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
   /** Open the in-game pause menu: freeze the world, free the cursor, show the overlay. */
   private openPause(): void {
-    if (this.paused || this.isDead || this.shopOpen || this.backpackOpen || this.preloading) return;
+    if (this.paused || this.isDead || this.shopOpen || this.backpackOpen || this.storeOpen || this.preloading) return;
     this.paused = true;
     // Solo freezes the world. Co-op cannot (the hunt goes on for the other player); the pause flag
     // still roots this player in place while the menu is open.
@@ -763,6 +787,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (this.speedTimer > 0) rows.push({ key: 'speed', modelUrl: POTIONS.speed.modelUrl, text: `${Math.ceil(this.speedTimer)}s` });
     if (this.damageTimer > 0) rows.push({ key: 'damage', modelUrl: POTIONS.damage.modelUrl, text: `${Math.ceil(this.damageTimer)}s` });
     if (this.healTimer > 0) rows.push({ key: 'heal', modelUrl: POTIONS.heal.modelUrl, text: `${Math.ceil(this.healTimer)}s` });
+    const charmLeft = this.sellBonusUntil - Date.now();
+    if (charmLeft > 0) {
+      // Merchant's Charm countdown, shown with the antler (the prize loot it pays more for).
+      const mins = Math.ceil(charmLeft / 60000);
+      rows.push({ key: 'charm', modelUrl: DROP_ITEMS.antler_rusa.modelUrl, text: `+25% ${mins}m` });
+    }
     this.statusHUD.set(rows);
   }
 
@@ -793,6 +823,10 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
 
   public override endPlay(): boolean {
     if (!super.endPlay()) return false;
+    if (this.isStoreTarget) {
+      StoreRewards.setTarget(null);
+      this.isStoreTarget = false;
+    }
     this.hotbar?.dispose();
     this.hotbar = null;
     this.healthBar?.dispose();
@@ -941,6 +975,94 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     if (isOnline()) this.isDead = true; // solo: die() sets it
     if (isOnline()) this.clientOnDamaged(0, 0, 0, -1);
     else this.onDamaged(0, 0, 0, -1);
+  }
+
+  //====================================================================================================
+  // Silicon store: what each store item does in play (see data/storeItems.ts, systems/StoreRewards.ts)
+  //====================================================================================================
+
+  /** Apply one Temporary store item. False (nothing given) when it does not fit right now. */
+  public grantStoreItem(sku: string): boolean {
+    let ok = false;
+    let message = '';
+    switch (sku) {
+      case SKU_QUIVER: {
+        if ((this.inventory?.roomFor('arrow') ?? 0) < QUIVER_ARROWS) { message = 'Make room in your backpack for the arrows'; break; }
+        this.inventory?.addStack({
+          icon: ARROW_ITEM.icon, name: ARROW_ITEM.name, price: ARROW_ITEM.price, stackId: 'arrow',
+          iconModelUrl: ARROW_ITEM.modelUrl, iconTextureUrl: ARROW_ITEM.textureUrl, count: QUIVER_ARROWS,
+        });
+        ok = true;
+        message = `+${QUIVER_ARROWS} arrows`;
+        break;
+      }
+      case SKU_POTION_KIT: {
+        const kit: [PotionEffect, number, string, string][] = [
+          ['heal', 2, '🟢', 'Health Potion'], ['speed', 1, '🔵', 'Speed Potion'], ['damage', 1, '🔴', 'Damage Potion'],
+        ];
+        const fits = kit.every(([effect, n]) =>
+          (this.hotbarInventory?.roomFor(effect) ?? 0) + (this.inventory?.roomFor(effect) ?? 0) >= n);
+        if (!fits) { message = 'Make room in your backpack for the potions'; break; }
+        for (const [effect, n, icon, name] of kit) {
+          for (let i = 0; i < n; i++) {
+            const entry = { icon, name, potion: effect, count: 1, iconModelUrl: POTIONS[effect]?.modelUrl };
+            if ((this.hotbarInventory?.addStack(entry) ?? -1) === -1) this.inventory?.addStack(entry);
+          }
+        }
+        ok = true;
+        message = 'Field Potion Kit added';
+        break;
+      }
+      case SKU_GOLD_POUCH:
+        this.addGold(GOLD_POUCH_AMOUNT);
+        ok = true;
+        message = `+${GOLD_POUCH_AMOUNT} gold`;
+        break;
+      case SKU_MERCHANT_CHARM:
+        // Stacks: a second charm extends the running one.
+        this.sellBonusUntil = Math.max(this.sellBonusUntil, Date.now()) + CHARM_DURATION_MS;
+        this.persist();
+        ok = true;
+        message = "Merchant's Charm: loot sells for +25%";
+        break;
+      default:
+        return false;
+    }
+    if (message) this.pickupToast?.show(message);
+    Sfx.play(ok ? 'buy' : 'error', ok ? 0.8 : 0.5);
+    return ok;
+  }
+
+  /** Apply a Permanent store item the player owns (idempotent: runs every session). */
+  public applyPermanentItem(sku: string): void {
+    if (sku === SKU_SATCHEL && this.inventory && this.inventory.size < SATCHEL_BACKPACK_SIZE) {
+      this.inventory.grow(SATCHEL_BACKPACK_SIZE);
+      this.persist();
+    }
+  }
+
+  /** Sell total with the Merchant's Charm bonus, if active. */
+  private applySellBonus(total: number): number {
+    if (total <= 0 || Date.now() >= this.sellBonusUntil) return total;
+    const boosted = Math.round(total * CHARM_SELL_MULT);
+    this.pickupToast?.show(`Merchant's Charm +${boosted - total} gold`);
+    return boosted;
+  }
+
+  /** Open the Silicon store (if installed), freezing the hunter and freeing the cursor. */
+  private openSiliconStore(): void {
+    const opened = StoreRewards.openStore(() => this.closeSiliconStore());
+    if (!opened) return;
+    this.storeOpen = true;
+    this.setCursorFree(true);
+    Sfx.play('uiOpen', 0.7);
+  }
+
+  private closeSiliconStore(): void {
+    if (!this.storeOpen) return;
+    this.storeOpen = false;
+    this.setCursorFree(false);
+    Sfx.play('uiClose', 0.7);
   }
 
   //====================================================================================================
@@ -1339,6 +1461,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
       gold: this.gold,
       hotbar: this.hotbarInventory.serialize(),
       backpack: this.inventory.serialize(),
+      backpackSize: this.inventory.size,
+      sellBonusUntil: this.sellBonusUntil,
     });
   }
 
@@ -2275,7 +2399,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn {
     const settings = getSettings();
     ENGINE.DefaultPlayerController.inputSettings.lookSensitivity = this.aiming ? settings.aimSensitivity : settings.tpSensitivity;
 
-    if (this.isDead || this.shopOpen || this.shopCamReturning || this.backpackOpen || this.drinking || this.paused || this.preloading) {
+    if (this.isDead || this.shopOpen || this.shopCamReturning || this.backpackOpen || this.storeOpen || this.drinking || this.paused || this.preloading) {
       // Frozen: death fade, an open menu, the camera return, drinking a potion, pause, or preloading.
       if (mn) { mn.addForwardInput(0); mn.addRightInput(0); mn.addLookRightInput(0); }
       // Kill any residual planar velocity so the pawn doesn't coast/slide while rooted.

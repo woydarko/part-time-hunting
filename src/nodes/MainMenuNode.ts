@@ -199,7 +199,7 @@ export class MainMenuNode extends ENGINE.SceneNode {
     const rows: [string, string][] = [
       ['WASD', 'Move'], ['Hold Middle Mouse', 'Look around'], ['Hold Shift', 'Sprint'], ['Q', 'Dash'], ['Space', 'Jump'],
       ['Left Click', 'Attack'], ['Right Click', 'Aim bow (hold to charge)'], ['1 – 4', 'Select weapon / potion'],
-      ['B', 'Backpack'], ['F', 'Pick up loot'], ['Esc', 'Pause'], ['Walk up to a merchant', 'Buy gear / sell loot'],
+      ['B', 'Backpack'], ['T', 'Silicon Store'], ['F', 'Pick up loot'], ['Esc', 'Pause'], ['Walk up to a merchant', 'Buy gear / sell loot'],
     ];
     for (const [key, desc] of rows) {
       const r = document.createElement('div');

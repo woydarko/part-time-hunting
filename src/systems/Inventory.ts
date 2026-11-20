@@ -105,6 +105,16 @@ export class Inventory {
     return firstSlot;
   }
 
+  /** How many more units of a stack key (stackId or potion) fit: stack top-ups plus empty slots. */
+  public roomFor(key: string): number {
+    let room = 0;
+    for (const s of this.slots) {
+      if (!s) room += MAX_STACK;
+      else if ((s.stackId ?? s.potion) === key) room += Math.max(0, MAX_STACK - (s.count ?? 1));
+    }
+    return room;
+  }
+
   /** Total count of items matching a stackId across all slots (e.g. arrows on hand). */
   public countOf(stackId: string): number {
     let total = 0;
@@ -133,6 +143,13 @@ export class Inventory {
   }
 
   /** Snapshot of all slots (deep-copied) for persistence. */
+  /** Add empty slots up to `size` (never shrinks). Bound grids re-render with the new slots. */
+  public grow(size: number): void {
+    if (size <= this.slots.length) return;
+    while (this.slots.length < size) this.slots.push(null);
+    this.emit();
+  }
+
   public serialize(): (InventoryItem | null)[] {
     return this.slots.map((s) => (s ? { ...s } : null));
   }
