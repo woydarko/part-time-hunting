@@ -44,6 +44,9 @@
     "genesys-world-building",
     "memory-profiling",
     "mesh-classifier",
+    "monetization-store",
+    "monetization-store-components",
+    "monetization-store-items",
     "webgpu-tsl-node-material-assets"
   ]
 }

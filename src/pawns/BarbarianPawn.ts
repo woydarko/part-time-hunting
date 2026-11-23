@@ -611,6 +611,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
         if (this.shopOpen) { this.closeShop(); return true; }
         if (this.backpackOpen) { this.closeBackpack(); return true; }
         if (this.paused) { this.closePause(); return true; }
+        if (this.storeOpen) return false; // the store's own key handler closes it
         return true;
       }
       // B toggles the backpack (not while shopping / mid camera return / dead).
