@@ -28,11 +28,10 @@
   flex-direction: column;
   width: min(960px, 100%);
   height: min(600px, 100%);
-  /* Part Time Hunting: dark leather, as the gear shop / backpack (reapply after a store template update) */
-  background: rgba(58, 34, 14, 0.92);
+  background: rgba(42, 45, 68, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 2px solid rgba(120, 78, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   overflow: hidden;
@@ -599,5 +598,204 @@
   /* Sign in stays on the text row: a second row costs ~56px of height. */
   .store-guest-bar [data-store-login-slot] {
     flex-basis: auto;
+  }
+}
+
+/* ===================================================================================================
+ * Part Time Hunting theme: the gear shop / backpack look (leather card art with gold corners, dark
+ * brown text, gold Buy, HelloBaby font). Last in the file so it wins; reapply after a template update.
+ * =================================================================================================== */
+.store-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  font-family: 'HelloBaby', system-ui, sans-serif;
+  color: #3a220e;
+}
+
+.store-panel {
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-style: solid;
+  border-width: 52px;
+  border-radius: 0;
+  border-image: url('@project/assets/textures/gearshop_card.png') 240 fill / 52px stretch;
+  box-shadow: none;
+}
+
+.store-header {
+  padding: 0 4px 10px;
+}
+
+.store-title {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: #3a220e;
+}
+
+.store-subtitle {
+  font-size: 15px;
+  color: rgba(58, 34, 14, 0.75);
+}
+
+.store-balance-chip {
+  background: rgba(58, 34, 14, 0.12);
+  border: 2px solid rgba(120, 78, 40, 0.7);
+}
+
+.store-balance {
+  font-size: 18px;
+  font-weight: 700;
+  color: #3a220e;
+}
+
+.store-header [data-store-get-coins-slot] .ui-button,
+.store-topup-bar [data-store-topup-slot] .ui-button {
+  background: #e0c268;
+  color: #12210f;
+}
+
+.store-header [data-store-get-coins-slot] .ui-button:hover:not([disabled]),
+.store-topup-bar [data-store-topup-slot] .ui-button:hover:not([disabled]) {
+  background: #ecd27f;
+  color: #12210f;
+}
+
+.store-header [data-store-close-slot] .ui-button {
+  color: #3a220e;
+}
+
+.store-header [data-store-close-slot] .ui-button:hover:not([disabled]) {
+  background: rgba(58, 34, 14, 0.12);
+  color: #3a220e;
+}
+
+/* Tabs: the gear shop's tan tabs, the active one in darker leather. */
+.store-tabs {
+  gap: 6px;
+  padding: 0 4px;
+  border-bottom: 0;
+}
+
+.store-tab {
+  padding: 10px 22px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #3a220e;
+  background: rgba(210, 180, 135, 0.85);
+  border: 2px solid rgba(120, 78, 40, 0.7);
+  border-radius: 6px;
+}
+
+.store-tab:hover {
+  color: #3a220e;
+  background: rgba(225, 198, 155, 0.95);
+}
+
+.store-tab[aria-selected='true'] {
+  color: #ffe9c2;
+  background: rgba(150, 96, 44, 0.95);
+  border-color: #3a220e;
+}
+
+.store-tab[aria-selected='true']::after {
+  display: none;
+}
+
+.store-tab-count {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.store-body {
+  padding: 14px 4px 8px;
+  scrollbar-color: rgba(58, 34, 14, 0.4) transparent;
+}
+
+.store-body::-webkit-scrollbar-thumb {
+  background: rgba(58, 34, 14, 0.4);
+  background-clip: padding-box;
+}
+
+.store-notice {
+  font-size: 15px;
+  color: #7a1a0c;
+  background: rgba(122, 26, 12, 0.12);
+  border: 2px solid rgba(122, 26, 12, 0.35);
+  border-radius: 6px;
+}
+
+.store-notice[data-tone='info'],
+.store-guest-bar,
+.store-topup-bar {
+  color: #3a220e;
+  background: rgba(58, 34, 14, 0.1);
+  border: 2px solid rgba(120, 78, 40, 0.7);
+  border-radius: 6px;
+}
+
+.store-guest-icon {
+  color: #3a220e;
+}
+
+.store-guest-bar p,
+.store-topup-bar p,
+.store-inventory-empty p,
+.store-state p {
+  font-size: 15px;
+  color: #3a220e;
+}
+
+.store-inventory-empty,
+.store-state {
+  border: 2px dashed rgba(120, 78, 40, 0.7);
+  border-radius: 8px;
+}
+
+.store-skeleton {
+  background: rgba(210, 180, 135, 0.6);
+  border: 2px solid rgba(120, 78, 40, 0.5);
+  border-radius: 8px;
+}
+
+.store-skeleton span {
+  background: rgba(120, 78, 40, 0.35);
+}
+
+.store-skeleton i,
+.store-skeleton i:last-child {
+  background: rgba(58, 34, 14, 0.18);
+}
+
+.store-footer {
+  padding: 0 4px;
+}
+
+.store-session-info {
+  color: rgba(58, 34, 14, 0.6);
+}
+
+/* Phones: no room for the card frame; flat leather edge to edge. */
+@container store (max-width: 552px) or (max-height: 432px) {
+  .store-panel {
+    border: 0;
+    border-image: none;
+    background: #c4834d;
+  }
+
+  .store-header {
+    padding: 14px 16px 10px;
+  }
+
+  .store-tabs,
+  .store-body,
+  .store-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .store-title {
+    font-size: 22px;
   }
 }

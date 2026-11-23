@@ -312,3 +312,91 @@
     border-color: rgba(251, 191, 36, 0.6);
   }
 }
+
+/* ===================================================================================================
+ * Part Time Hunting theme: tan leather tiles like the gear shop tabs, dark brown text, gold Buy with a
+ * dark label, HelloBaby font. Last in the file so it wins; reapply after a template update.
+ * =================================================================================================== */
+.store-card {
+  font-family: 'HelloBaby', system-ui, sans-serif;
+  background: rgba(210, 180, 135, 0.85);
+  border: 2px solid rgba(120, 78, 40, 0.7);
+  border-radius: 8px;
+}
+
+.store-card:hover {
+  border-color: #3a220e;
+  box-shadow: 0 10px 22px rgba(58, 34, 14, 0.35);
+}
+
+.store-card-art {
+  border-radius: 6px;
+  border: 2px solid rgba(120, 78, 40, 0.7);
+}
+
+.store-card-art[data-kind='consumable'],
+.store-card-art[data-kind='permanent'],
+.store-card-art[data-kind='free'] {
+  --store-tint-1: #b8743f;
+  --store-tint-2: #6e3f1f;
+}
+
+.store-card-chip-type,
+.store-card-art[data-kind='consumable'] .store-card-chip-type,
+.store-card-art[data-kind='permanent'] .store-card-chip-type,
+.store-card-art[data-kind='free'] .store-card-chip-type {
+  color: #ffe9c2;
+  background: rgba(58, 34, 14, 0.8);
+  border: 1px solid rgba(255, 233, 194, 0.25);
+}
+
+.store-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #3a220e;
+}
+
+.store-card-description {
+  font-size: 14px;
+  color: rgba(58, 34, 14, 0.78);
+}
+
+.store-card-amount {
+  font-size: 17px;
+  color: #8a5a12;
+}
+
+.store-card-note {
+  color: rgba(58, 34, 14, 0.6);
+}
+
+/* Buy / Claim: the accent is the gear shop's gold, so the label goes dark as on its Buy button. */
+.store-card-action .ui-button:not([disabled]) {
+  color: #12210f;
+  font-weight: 700;
+}
+
+.store-card[data-draft='true'] {
+  border: 2px dashed #8a5a12;
+  background: rgba(225, 198, 155, 0.85);
+}
+
+.store-card[data-draft='true']:hover {
+  border-color: #3a220e;
+  box-shadow: 0 10px 22px rgba(58, 34, 14, 0.35);
+}
+
+.store-card-watermark {
+  color: rgba(255, 233, 194, 0.28);
+}
+
+@media (hover: none) {
+  .store-card:hover {
+    border-color: rgba(120, 78, 40, 0.7);
+  }
+
+  .store-card[data-draft='true']:hover {
+    border-color: #8a5a12;
+  }
+}

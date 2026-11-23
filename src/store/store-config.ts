@@ -34,7 +34,7 @@ export const storeConfig: StoreConfig = {
   hotkey: null, // B is the backpack; the hunter's T key opens the store (BarbarianPawn -> StoreRewards)
   showHudChip: false, // opened from T so the hunter freezes; a chip click would skip that
   hudPosition: 'top-right',
-  accent: '#96602c', // leather tan, as the gear shop's active tab
+  accent: '#e0c268', // gold, as the gear shop's Buy button (dark label: assets/ui/store/*.css theme block)
   showSessionInfo: true,
 };
 
