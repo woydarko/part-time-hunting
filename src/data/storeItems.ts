@@ -44,6 +44,18 @@ export const CHARM_DURATION_MS = 30 * 60 * 1000;
 /** Backpack slots with the Hunter's Satchel (base backpack is 12). */
 export const SATCHEL_BACKPACK_SIZE = 16;
 
+/**
+ * Store Manager item id (core `itemId`, what the in-game store reports) -> game SKU.
+ * Created in the Store Manager for game 7d357735-7787-4a97-b079-8b0dcb216a53.
+ */
+export const SKU_BY_ITEM_ID: Record<string, string> = {
+  cmwt3g7oc00123701y7kr579w: SKU_QUIVER,
+  cmwt3g96h00133701mi12hymj: SKU_POTION_KIT,
+  cmwt3g9on00143701fqpykpd9: SKU_GOLD_POUCH,
+  cmwt3ga6z00153701lu0cnkxw: SKU_MERCHANT_CHARM,
+  cmwt3gaqr001637015v7798ks: SKU_SATCHEL,
+};
+
 export const STORE_ITEMS: Record<string, StoreItemDef> = {
   [SKU_QUIVER]: {
     sku: SKU_QUIVER,

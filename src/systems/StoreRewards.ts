@@ -12,7 +12,10 @@
  * Calls made before the player's pawn exists are queued and applied as soon as it does.
  */
 
-import { STORE_ITEMS } from '../data/storeItems.js';
+import { SKU_BY_ITEM_ID, STORE_ITEMS } from '../data/storeItems.js';
+
+/** The store names items by their Store Manager item id; the game by SKU. Either is accepted. */
+const toSku = (id: string): string => SKU_BY_ITEM_ID[id] ?? id;
 
 /** Implemented by the local player's pawn. */
 export interface StoreRewardTarget {
@@ -42,8 +45,9 @@ export const StoreRewards = {
     }
   },
 
-  /** Apply a Temporary item. Unknown SKUs are refused. */
-  applyItem(sku: string): boolean {
+  /** Apply a Temporary item (store item id or SKU). Unknown items are refused. */
+  applyItem(id: string): boolean {
+    const sku = toSku(id);
     const def = STORE_ITEMS[sku];
     if (!def) return false;
     if (def.behaviour === 'Permanent') {
@@ -58,8 +62,8 @@ export const StoreRewards = {
   },
 
   /** Restore Permanent items the player owns (call on every ownership load / change). */
-  applyOwned(skus: readonly string[]): void {
-    for (const sku of skus) {
+  applyOwned(ids: readonly string[]): void {
+    for (const sku of ids.map(toSku)) {
       if (STORE_ITEMS[sku]?.behaviour !== 'Permanent') continue;
       ownedPermanent.add(sku);
       target?.applyPermanentItem(sku);
@@ -67,8 +71,8 @@ export const StoreRewards = {
   },
 
   /** Whether a Permanent item has been reported as owned this session. */
-  owns(sku: string): boolean {
-    return ownedPermanent.has(sku);
+  owns(id: string): boolean {
+    return ownedPermanent.has(toSku(id));
   },
 
   setStoreOpener(open: StoreOpener | null): void {
