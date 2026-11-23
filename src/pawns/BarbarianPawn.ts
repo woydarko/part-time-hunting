@@ -262,8 +262,8 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
   @ENGINE.property({ replicate: true, transient: true, net: { netType: 'bool', replicateTo: 'non-owner' } })
   public netAiming: boolean = false;
   // Silicon store state (owner only).
-  /** Merchant's Charm expiry, epoch ms (0 = inactive). */
-  private sellBonusUntil = 0;
+  /** Merchant's Charm play time left, ms (0 = inactive). Counts down only while the game runs. */
+  private charmMsLeft = 0;
   /** The Silicon store UI is open (gameplay frozen, cursor free). */
   private storeOpen = false;
   /** This pawn is the store's reward target (the local player). */
@@ -693,7 +693,9 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
         this.gold = saved.gold;
         // Grow first (Hunter's Satchel) so the extra backpack slots load too.
         if (typeof saved.backpackSize === 'number') this.inventory.grow(Math.min(saved.backpackSize, SATCHEL_BACKPACK_SIZE));
-        this.sellBonusUntil = typeof saved.sellBonusUntil === 'number' ? saved.sellBonusUntil : 0;
+        // Charm play time left; older saves stored an expiry timestamp instead.
+        const charmLeft = typeof saved.charmMsLeft === 'number' ? saved.charmMsLeft : (saved.sellBonusUntil ?? 0) - Date.now();
+        this.charmMsLeft = Number.isFinite(charmLeft) ? Math.min(Math.max(0, charmLeft), 10 * CHARM_DURATION_MS) : 0;
         if (Array.isArray(saved.hotbar)) this.hotbarInventory.load(saved.hotbar);
         if (Array.isArray(saved.backpack)) this.inventory.load(saved.backpack);
         this.goldHUD.set(this.gold);
@@ -802,7 +804,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     if (this.speedTimer > 0) rows.push({ key: 'speed', modelUrl: POTIONS.speed.modelUrl, text: `${Math.ceil(this.speedTimer)}s` });
     if (this.damageTimer > 0) rows.push({ key: 'damage', modelUrl: POTIONS.damage.modelUrl, text: `${Math.ceil(this.damageTimer)}s` });
     if (this.healTimer > 0) rows.push({ key: 'heal', modelUrl: POTIONS.heal.modelUrl, text: `${Math.ceil(this.healTimer)}s` });
-    const charmLeft = this.sellBonusUntil - Date.now();
+    const charmLeft = this.charmMsLeft;
     if (charmLeft > 0) {
       // Merchant's Charm countdown, shown with the antler (the prize loot it pays more for).
       const mins = Math.ceil(charmLeft / 60000);
@@ -1037,7 +1039,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
         break;
       case SKU_MERCHANT_CHARM:
         // Stacks: a second charm extends the running one.
-        this.sellBonusUntil = Math.max(this.sellBonusUntil, Date.now()) + CHARM_DURATION_MS;
+        this.charmMsLeft += CHARM_DURATION_MS;
         this.persist();
         ok = true;
         message = "Merchant's Charm: loot sells for +25%";
@@ -1060,7 +1062,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
 
   /** Sell total with the Merchant's Charm bonus, if active. */
   private applySellBonus(total: number): number {
-    if (total <= 0 || Date.now() >= this.sellBonusUntil) return total;
+    if (total <= 0 || this.charmMsLeft <= 0) return total;
     const boosted = Math.round(total * CHARM_SELL_MULT);
     this.pickupToast?.show(`Merchant's Charm +${boosted - total} gold`);
     return boosted;
@@ -1479,7 +1481,7 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
       hotbar: this.hotbarInventory.serialize(),
       backpack: this.inventory.serialize(),
       backpackSize: this.inventory.size,
-      sellBonusUntil: this.sellBonusUntil,
+      charmMsLeft: this.charmMsLeft,
     });
   }
 
@@ -1548,6 +1550,12 @@ export class BarbarianPawn extends ENGINE.DefaultCharacterPawn implements StoreR
     }
     if (this.speedTimer > 0) this.speedTimer -= deltaTime;
     if (this.damageTimer > 0) this.damageTimer -= deltaTime;
+    if (this.charmMsLeft > 0) {
+      const minutesBefore = Math.ceil(this.charmMsLeft / 60000);
+      this.charmMsLeft = Math.max(0, this.charmMsLeft - deltaTime * 1000);
+      // Save once a minute (and at expiry) so a reload resumes the countdown where it stopped.
+      if (Math.ceil(this.charmMsLeft / 60000) !== minutesBefore) this.persist();
+    }
     // Apply the current buff states.
     const mn = this.movementNode;
     if (mn instanceof ENGINE.CharacterMovementNode) {

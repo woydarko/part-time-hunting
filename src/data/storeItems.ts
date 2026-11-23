@@ -38,7 +38,7 @@ export const SKU_SATCHEL = 'pth_hunters_satchel';
 export const QUIVER_ARROWS = 20;
 /** Gold granted by one Gold Pouch. */
 export const GOLD_POUCH_AMOUNT = 300;
-/** Merchant's Charm: loot sells for this much more, for this long (real time, survives reloads). */
+/** Merchant's Charm: loot sells for this much more, for this much play time (paused offline, survives reloads). */
 export const CHARM_SELL_MULT = 1.25;
 export const CHARM_DURATION_MS = 30 * 60 * 1000;
 /** Backpack slots with the Hunter's Satchel (base backpack is 12). */
@@ -63,7 +63,7 @@ export const STORE_ITEMS: Record<string, StoreItemDef> = {
     description: `${QUIVER_ARROWS} arrows straight into your backpack. Never run dry mid-hunt.`,
     category: 'Consumable',
     behaviour: 'Temporary',
-    suggestedPrice: 20,
+    suggestedPrice: 10, // 60 gold of arrows: ~6 gold per Silicon, in line with the Gold Pouch
   },
   [SKU_POTION_KIT]: {
     sku: SKU_POTION_KIT,
@@ -84,7 +84,7 @@ export const STORE_ITEMS: Record<string, StoreItemDef> = {
   [SKU_MERCHANT_CHARM]: {
     sku: SKU_MERCHANT_CHARM,
     name: "Merchant's Charm",
-    description: 'All loot sells for 25% more gold for 30 minutes.',
+    description: 'All loot sells for 25% more gold for 30 minutes of play.',
     category: 'Timed Boost',
     behaviour: 'Temporary',
     suggestedPrice: 30,

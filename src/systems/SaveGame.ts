@@ -14,7 +14,9 @@ export interface SaveData {
   backpack: (InventoryItem | null)[];
   /** Backpack slot count (grown by the Hunter's Satchel); restored before the backpack loads. */
   backpackSize?: number;
-  /** Merchant's Charm expiry (epoch ms), so the boost survives a reload. */
+  /** Merchant's Charm play time left (ms), so the boost survives a reload without running offline. */
+  charmMsLeft?: number;
+  /** Older saves: the Charm's expiry (epoch ms); converted to charmMsLeft on load. */
   sellBonusUntil?: number;
 }
 
