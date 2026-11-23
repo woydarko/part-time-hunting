@@ -776,6 +776,24 @@
   color: rgba(58, 34, 14, 0.6);
 }
 
+/* Two fonts, as the store kit: HelloBaby (inherited above) for headings, names, prices and buttons;
+   a plain readable face for descriptive text. !important + two classes beat the game-wide
+   `.trimen-font *` HelloBaby rule (src/ui/gameFont.ts). */
+.store-backdrop .store-subtitle,
+.store-backdrop .store-card-description,
+.store-backdrop .store-card-note,
+.store-backdrop .store-card-chip,
+.store-backdrop .store-notice,
+.store-backdrop .store-guest-bar p,
+.store-backdrop .store-topup-bar p,
+.store-backdrop .store-inventory-empty p,
+.store-backdrop .store-state p,
+.store-backdrop .store-session-info,
+.store-backdrop .store-test-tag {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+  font-weight: 500;
+}
+
 /* Phones: no room for the card frame; flat leather edge to edge. */
 @container store (max-width: 552px) or (max-height: 432px) {
   .store-panel {
